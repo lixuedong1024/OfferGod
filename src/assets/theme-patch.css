@@ -1,0 +1,492 @@
+/* ──────────────────────────────────────────────────────────────
+   OfferGod 配色方案补丁 - 基于 Remote Manager 标准
+   应用青色系主题和玻璃态设计
+   ────────────────────────────────────────────────────────────── */
+
+/* Element Plus 组件深色模式覆盖 */
+.el-dialog {
+  background: rgba(30, 41, 59, 0.9) !important;
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.el-dialog__header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-dialog__title {
+  color: var(--fg-0) !important;
+}
+
+.el-dialog__body {
+  color: var(--fg-1) !important;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Element Plus 输入框 */
+.el-input__wrapper {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: rgba(20, 184, 166, 0.35) !important;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: #14b8a6 !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1) !important;
+}
+
+.el-input__inner {
+  color: var(--fg-0) !important;
+  background: transparent !important;
+}
+
+.el-input__inner::placeholder {
+  color: var(--fg-3) !important;
+}
+
+/* Element Plus 选择器 */
+.el-select-dropdown {
+  background: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.el-select-dropdown__item {
+  color: var(--fg-1) !important;
+}
+
+.el-select-dropdown__item:hover {
+  background: rgba(20, 184, 166, 0.1) !important;
+  color: var(--fg-0) !important;
+}
+
+.el-select-dropdown__item.selected {
+  background: rgba(20, 184, 166, 0.15) !important;
+  color: #14b8a6 !important;
+}
+
+/* Element Plus 按钮 */
+.el-button {
+  background: rgba(51, 65, 85, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--fg-0) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-button:hover {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border-color: rgba(20, 184, 166, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.25) !important;
+}
+
+.el-button--primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px rgba(20, 184, 166, 0.35) !important;
+}
+
+/* Element Plus 开关 */
+.el-switch__core {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-switch.is-checked .el-switch__core {
+  background: #14b8a6 !important;
+  border-color: #14b8a6 !important;
+}
+
+/* Element Plus 数字输入框 */
+.el-input-number {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-input-number__decrease,
+.el-input-number__increase {
+  background: transparent !important;
+  color: var(--fg-1) !important;
+}
+
+.el-input-number__decrease:hover,
+.el-input-number__increase:hover {
+  color: #14b8a6 !important;
+}
+
+/* Element Plus 滑块 */
+.el-slider__runway {
+  background: rgba(51, 65, 85, 0.6) !important;
+}
+
+.el-slider__bar {
+  background: #14b8a6 !important;
+}
+
+.el-slider__button {
+  border-color: #14b8a6 !important;
+  background: #14b8a6 !important;
+}
+
+/* Element Plus 表单标签 */
+.el-form-item__label {
+  color: var(--fg-1) !important;
+}
+
+/* Element Plus 消息提示 */
+.el-message {
+  background: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.el-message__content {
+  color: var(--fg-0) !important;
+}
+
+/* 覆盖 pill 样式 */
+.pill.accent{
+  background: rgba(20, 184, 166, 0.1) !important;
+  color: #14b8a6 !important;
+}
+.pill.warn{
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #f59e0b !important;
+}
+.pill.danger{
+  background: rgba(239, 68, 68, 0.16) !important;
+  color: #ef4444 !important;
+}
+.pill.info{
+  background: rgba(6, 182, 212, 0.16) !important;
+  color: #06b6d4 !important;
+}
+
+/* 输入框玻璃态 */
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--fg-0) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: rgba(20, 184, 166, 0.35) !important;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  border-color: #14b8a6 !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 岗位行玻璃态 */
+.job-row {
+  background: rgba(30, 41, 59, 0.5) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.job-row:hover {
+  box-shadow: 0 8px 32px rgba(20, 184, 166, 0.15) !important;
+  border-color: rgba(20, 184, 166, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* 标签页 */
+.tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.tab.active {
+  color: var(--fg-0) !important;
+  border-bottom-color: #14b8a6 !important;
+}
+
+/* 导航项激活状态 */
+.nav-item.active {
+  background: rgba(20, 184, 166, 0.15) !important;
+  color: #14b8a6 !important;
+}
+
+.nav-item:hover {
+  background: rgba(20, 184, 166, 0.1) !important;
+}
+
+/* 评分条 */
+.score-bar-fill {
+  background: linear-gradient(90deg, #14b8a6, #0d9488) !important;
+}
+
+.score-num {
+  color: #14b8a6 !important;
+}
+
+/* 引擎状态 */
+.engine-status .pulse {
+  background: #14b8a6 !important;
+  box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7) !important;
+  animation: pulse-teal 2s infinite !important;
+}
+
+@keyframes pulse-teal {
+  0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(20, 184, 166, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+
+/* 品牌标记 */
+.brand-mark {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important;
+}
+
+/* 链接颜色 */
+a {
+  color: #14b8a6 !important;
+}
+
+a:hover {
+  color: #2dd4bf !important;
+}
+
+/* 成功状态 */
+.success,
+.status-success {
+  color: #10b981 !important;
+}
+
+/* 警告状态 */
+.warning,
+.status-warning {
+  color: #f59e0b !important;
+}
+
+/* 错误状态 */
+.error,
+.status-error {
+  color: #ef4444 !important;
+}
+
+/* 信息状态 */
+.info,
+.status-info {
+  color: #06b6d4 !important;
+}
+
+/* 工作流节点激活状态 */
+.wf-node.active {
+  border-color: #14b8a6 !important;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2) !important;
+}
+
+.wf-node.active .wf-port {
+  background: #14b8a6 !important;
+}
+
+/* 工作流连接线 */
+.wf-link.live {
+  stroke: #14b8a6 !important;
+  filter: drop-shadow(0 0 4px rgba(20, 184, 166, 0.5)) !important;
+}
+
+/* 图表颜色 */
+.bars .bar .fill {
+  background: #14b8a6 !important;
+}
+
+.funnel-row .bar .fill {
+  background: linear-gradient(90deg, #14b8a6, #0d9488) !important;
+}
+
+/* 日历事件 */
+.cal-evt {
+  background: rgba(20, 184, 166, 0.18) !important;
+  color: #14b8a6 !important;
+  border-left-color: #14b8a6 !important;
+}
+
+/* 今日标记 */
+.cal-cell.today .cal-num {
+  color: #14b8a6 !important;
+  background: rgba(20, 184, 166, 0.18) !important;
+}
+
+/* 徽章 */
+.badge {
+  background: rgba(20, 184, 166, 0.18) !important;
+  color: #14b8a6 !important;
+}
+
+/* 切换按钮激活状态 */
+.toggle button.on {
+  background: #14b8a6 !important;
+  color: white !important;
+}
+
+/* 复选框和单选框 */
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background: #14b8a6 !important;
+  border-color: #14b8a6 !important;
+}
+
+/* 进度条 */
+.progress-bar {
+  background: #14b8a6 !important;
+}
+
+/* 滑块 */
+.slider-track-fill {
+  background: #14b8a6 !important;
+}
+
+.slider-thumb {
+  background: #14b8a6 !important;
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.2) !important;
+}
+
+/* 加载动画 */
+.loading-spinner {
+  border-top-color: #14b8a6 !important;
+}
+
+/* 通知 */
+.notification.success {
+  border-left-color: #10b981 !important;
+}
+
+.notification.warning {
+  border-left-color: #f59e0b !important;
+}
+
+.notification.error {
+  border-left-color: #ef4444 !important;
+}
+
+.notification.info {
+  border-left-color: #06b6d4 !important;
+}
+
+/* 配置项背景 */
+.config-item {
+  background: rgba(51, 65, 85, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+
+/* 浅色模式特定样式 */
+[data-theme='light'] .card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme='light'] .card:hover {
+  box-shadow: 0 8px 32px rgba(20, 184, 166, 0.15) !important;
+}
+
+[data-theme='light'] .sidebar {
+  background: rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-theme='light'] .topbar {
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-theme='light'] .main {
+  background: #f8fafc !important;
+  background-image:
+    radial-gradient(at 40% 20%, rgba(20, 184, 166, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(6, 182, 212, 0.06) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(20, 184, 166, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.04) 0px, transparent 50%) !important;
+}
+
+[data-theme='light'] .btn {
+  background: rgba(241, 245, 249, 0.8) !important;
+  border: 1px solid #e2e8f0 !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+[data-theme='light'] .btn:hover {
+  background: rgba(226, 232, 240, 0.9) !important;
+  border-color: rgba(20, 184, 166, 0.35) !important;
+}
+
+[data-theme='light'] .job-row {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-theme='light'] input,
+[data-theme='light'] textarea,
+[data-theme='light'] select,
+[data-theme='light'] .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #e2e8f0 !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+[data-theme='light'] .el-dialog {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme='light'] .el-select-dropdown {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme='light'] .config-item {
+  background: rgba(241, 245, 249, 0.8) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .theme-toggle {
+  background: rgba(241, 245, 249, 0.8) !important;
+  border: 1px solid #e2e8f0 !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+[data-theme='light'] .theme-toggle:hover {
+  background: rgba(226, 232, 240, 0.9) !important;
+}

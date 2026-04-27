@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OfferGod - Offer之神</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      min-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .header {
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 20px;
+    }
+
+    .status {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .status-title {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .status-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #4ade80;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #2a2a2a;
+      color: #fff;
+    }
+
+    .btn-secondary:hover {
+      background: #333;
+    }
+
+    .tip {
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🎯 OfferGod</div>
+    <div class="subtitle">Offer之神 · AI加持</div>
+  </div>
+
+  <div class="content">
+    <div class="status">
+      <div class="status-title">今日投递</div>
+      <div class="status-value" id="todayCount">0</div>
+    </div>
+
+    <div class="status">
+      <div class="status-title">引擎状态</div>
+      <div class="status-value" id="engineStatus">已暂停</div>
+    </div>
+
+    <button class="btn btn-primary" id="openDashboard">
+      打开工作台
+    </button>
+
+    <button class="btn btn-secondary" id="openSettings">
+      设置
+    </button>
+
+    <div class="tip">
+      💡 请在 Boss 直聘页面使用<br>
+      点击"打开工作台"查看完整功能
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 加载今日投递数据
+      const data = await chrome.storage.local.get(['todayCount', 'engineRunning']);
+
+      if (data.todayCount) {
+        document.getElementById('todayCount').textContent = data.todayCount;
+      }
+
+      if (data.engineRunning) {
+        document.getElementById('engineStatus').textContent = '运行中';
+        document.getElementById('engineStatus').style.color = '#4ade80';
+      }
+
+      // 打开工作台
+      document.getElementById('openDashboard').addEventListener('click', async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (tab.url && tab.url.includes('zhipin.com')) {
+          // 在当前标签页注入内容脚本
+          try {
+            await chrome.tabs.sendMessage(tab.id, { action: 'openDashboard' });
+            window.close();
+          } catch (error) {
+            console.error('发送消息失败:', error);
+            // 刷新页面重新加载 content script
+            chrome.tabs.reload(tab.id);
+            window.close();
+          }
+        } else {
+          // 打开 Boss 直聘
+          chrome.tabs.create({ url: 'https://www.zhipin.com/web/geek/job' });
+          window.close();
+        }
+      });
+
+      // 打开设置
+      document.getElementById('openSettings').addEventListener('click', async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (tab.url && tab.url.includes('zhipin.com')) {
+          try {
+            await chrome.tabs.sendMessage(tab.id, { action: 'openSettings' });
+            window.close();
+          } catch (error) {
+            console.error('发送消息失败:', error);
+            // 刷新页面重新加载 content script
+            chrome.tabs.reload(tab.id);
+            window.close();
+          }
+        } else {
+          alert('请先访问 Boss 直聘网站');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
