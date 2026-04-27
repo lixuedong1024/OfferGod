@@ -85,14 +85,59 @@ export function useWebSocket() {
 
   // 连接错误
   function handleError(event: Event) {
-    Logger.error('WebSocket 错误', { event: String(event) });
+    const errorDetail = {
+      type: event.type,
+      timestamp: Date.now(),
+      readyState: ws.value?.readyState,
+      url: config?.url,
+    };
+    Logger.error('WebSocket 连接错误', errorDetail);
+
+    // 触发错误事件，让 UI 层可以显示友好提示
+    window.dispatchEvent(new CustomEvent('offergod:websocket:error', {
+      detail: {
+        message: '网络连接出现问题，请检查网络设置',
+        technical: errorDetail
+      }
+    }));
   }
 
   // 连接关闭
   function handleClose(event: CloseEvent) {
-    Logger.warn('WebSocket 连接关闭', { code: event.code, reason: event.reason });
+    const closeInfo = {
+      code: event.code,
+      reason: event.reason || '未知原因',
+      wasClean: event.wasClean,
+      timestamp: Date.now(),
+    };
+
+    Logger.warn('WebSocket 连接关闭', closeInfo);
     status.value = 'disconnected';
     stopHeartbeat();
+
+    // 根据关闭码提供友好的错误信息
+    let userMessage = '';
+    if (event.code === 1000) {
+      userMessage = '连接正常关闭';
+    } else if (event.code === 1001) {
+      userMessage = '服务器正在重启，将自动重连';
+    } else if (event.code === 1006) {
+      userMessage = '连接异常断开，可能是网络问题';
+    } else if (event.code === 1008) {
+      userMessage = '连接被服务器拒绝，请检查登录状态';
+    } else if (event.code === 1011) {
+      userMessage = '服务器遇到错误，将尝试重连';
+    } else {
+      userMessage = `连接关闭 (代码: ${event.code})`;
+    }
+
+    // 触发关闭事件
+    window.dispatchEvent(new CustomEvent('offergod:websocket:close', {
+      detail: {
+        message: userMessage,
+        ...closeInfo
+      }
+    }));
 
     // 非正常关闭，尝试重连
     if (event.code !== 1000) {
@@ -100,21 +145,39 @@ export function useWebSocket() {
     }
   }
 
-  // 发送消息
-  function sendMessage(args: MessageArgs): boolean {
+  // 发送消息（带重试机制）
+  async function sendMessage(args: MessageArgs, retryCount = 0, maxRetries = 3): Promise<{ success: boolean; error?: string }> {
     if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
-      Logger.error('WebSocket 未连接，无法发送消息');
-      return false;
+      const error = 'WebSocket 未连接';
+      Logger.error(error, { readyState: ws.value?.readyState });
+
+      // 如果还有重试次数，等待后重试
+      if (retryCount < maxRetries) {
+        Logger.info(`准备重试发送消息 (${retryCount + 1}/${maxRetries})`, { to: args.toUid });
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // 递增延迟
+        return sendMessage(args, retryCount + 1, maxRetries);
+      }
+
+      return { success: false, error };
     }
 
     try {
       const message = new ChatMessage(args);
       ws.value.send(message.toArrayBuffer());
-      Logger.info('发送消息成功', { to: args.toUid, content: args.content });
-      return true;
+      Logger.info('发送消息成功', { to: args.toUid, content: args.content.substring(0, 50) });
+      return { success: true };
     } catch (error) {
-      Logger.error('发送消息失败', { error: String(error) });
-      return false;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      Logger.error('发送消息失败', { error: errorMsg, to: args.toUid, retryCount });
+
+      // 如果还有重试次数，等待后重试
+      if (retryCount < maxRetries) {
+        Logger.info(`准备重试发送消息 (${retryCount + 1}/${maxRetries})`, { to: args.toUid });
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return sendMessage(args, retryCount + 1, maxRetries);
+      }
+
+      return { success: false, error: errorMsg };
     }
   }
 
