@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useStatisticsStore } from '../stores/statistics';
+import { syncConversations, fullSync } from '../composables/useChatSync';
+import { ElMessage } from 'element-plus';
 
 const stats = useStatisticsStore();
+const isSyncing = ref(false);
 
 // 计算最近7天的趋势数据
 const recentDays = computed(() => stats.getRecentDays(7));
@@ -13,6 +16,50 @@ function initWelcomeActivities() {
     stats.addActivity({ kind: 'ok', msg: 'OfferGod 已启动，准备就绪！' });
     stats.addActivity({ kind: 'log', msg: '请先在设置中配置 AI 模型' });
     stats.addActivity({ kind: 'log', msg: '然后开始使用自动化投递功能' });
+  }
+}
+
+// 同步聊天列表
+async function handleSyncChats() {
+  if (isSyncing.value) return;
+
+  isSyncing.value = true;
+  try {
+    ElMessage.info('开始同步聊天记录...');
+    stats.addActivity({ kind: 'log', msg: '开始同步 Boss 直聘聊天记录...' });
+
+    await syncConversations();
+
+    ElMessage.success('聊天列表同步成功！');
+    stats.addActivity({ kind: 'ok', msg: '聊天列表同步完成' });
+  } catch (error: any) {
+    console.error('同步失败:', error);
+    ElMessage.error(`同步失败: ${error.message}`);
+    stats.addActivity({ kind: 'error', msg: `同步失败: ${error.message}` });
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
+// 完整同步（包括历史消息）
+async function handleFullSync() {
+  if (isSyncing.value) return;
+
+  isSyncing.value = true;
+  try {
+    ElMessage.info('开始完整同步，这可能需要一些时间...');
+    stats.addActivity({ kind: 'log', msg: '开始完整同步聊天记录和历史消息...' });
+
+    await fullSync(20); // 每个会话同步最近 20 条消息
+
+    ElMessage.success('完整同步成功！');
+    stats.addActivity({ kind: 'ok', msg: '完整同步完成' });
+  } catch (error: any) {
+    console.error('完整同步失败:', error);
+    ElMessage.error(`完整同步失败: ${error.message}`);
+    stats.addActivity({ kind: 'error', msg: `完整同步失败: ${error.message}` });
+  } finally {
+    isSyncing.value = false;
   }
 }
 
@@ -30,8 +77,22 @@ onMounted(async () => {
         <div class="sub">AI 自动化求职 · 今日已运行 6 小时 14 分</div>
       </div>
       <div class="actions">
-        <button class="btn btn-ghost">重新加载</button>
-        <button class="btn">暂停引擎</button>
+        <button class="btn btn-ghost" @click="handleSyncChats" :disabled="isSyncing">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          {{ isSyncing ? '同步中...' : '同步聊天' }}
+        </button>
+        <button class="btn" @click="handleFullSync" :disabled="isSyncing">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          {{ isSyncing ? '同步中...' : '完整同步' }}
+        </button>
         <button class="btn btn-primary">查看工作流</button>
       </div>
     </div>

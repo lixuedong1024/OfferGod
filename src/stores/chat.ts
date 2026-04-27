@@ -177,7 +177,89 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 删除会话
+  // 获取会话
+  function getSession(bossId: string): ChatSession | undefined {
+    return sessions.value.find(s => s.bossUid === bossId);
+  }
+
+  // 创建会话
+  function createSession(params: {
+    bossId: string;
+    bossName: string;
+    bossAvatar: string;
+    jobTitle?: string;
+    companyName?: string;
+  }): ChatSession {
+    const sessionId = `${params.bossId}_${Date.now()}`;
+    const session: ChatSession = {
+      id: sessionId,
+      jobId: '',
+      bossUid: params.bossId,
+      bossEncryptUid: '',
+      bossName: params.bossName,
+      bossAvatar: params.bossAvatar,
+      companyName: params.companyName || '',
+      jobTitle: params.jobTitle || '',
+      lastMessage: '',
+      lastMessageTime: 0,
+      unreadCount: 0,
+      messages: [],
+    };
+    sessions.value.unshift(session);
+    Logger.info('创建新会话', { sessionId, bossName: params.bossName });
+    return session;
+  }
+
+  // 接收消息（用于同步历史消息）
+  async function receiveMessage(params: {
+    id: string;
+    sessionId: string;
+    content: string;
+    senderId: string;
+    receiverId: string;
+    timestamp: number;
+    type: number;
+    status: ChatMessage['status'];
+  }) {
+    const session = sessions.value.find(s => s.bossUid === params.sessionId);
+    if (!session) {
+      Logger.warn('会话不存在，无法接收消息', { sessionId: params.sessionId });
+      return;
+    }
+
+    // 检查消息是否已存在
+    const exists = session.messages.some(m => m.id === params.id);
+    if (exists) {
+      Logger.debug('消息已存在，跳过', { messageId: params.id });
+      return;
+    }
+
+    // 获取用户信息判断消息角色
+    const data = await chrome.storage.local.get('userInfo');
+    const userInfo = data.userInfo;
+    const role = params.senderId === userInfo?.uid ? 'user' : 'boss';
+
+    const message: ChatMessage = {
+      id: params.id,
+      sessionId: session.id,
+      role,
+      content: params.content,
+      time: params.timestamp,
+      status: params.status,
+    };
+
+    session.messages.push(message);
+    session.lastMessage = params.content;
+    session.lastMessageTime = params.timestamp;
+
+    // 如果是 boss 发来的消息且不是当前会话，增加未读计数
+    if (role === 'boss' && currentSessionId.value !== session.id) {
+      session.unreadCount++;
+    }
+
+    await saveSessions();
+    Logger.debug('接收消息', { messageId: params.id, role, content: params.content });
+  }
   async function deleteSession(sessionId: string) {
     const index = sessions.value.findIndex(s => s.id === sessionId);
     if (index !== -1) {
@@ -202,9 +284,12 @@ export const useChatStore = defineStore('chat', () => {
     totalUnreadCount,
     loadSessions,
     saveSessions,
+    getSession,
+    createSession,
     getOrCreateSession,
     addMessage,
     sendMessage,
+    receiveMessage,
     updateMessageStatus,
     markSessionAsRead,
     setCurrentSession,
