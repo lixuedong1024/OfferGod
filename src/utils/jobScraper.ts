@@ -1,5 +1,6 @@
 // 岗位数据抓取工具
 export interface JobData {
+  // 基础信息
   encryptJobId: string;
   jobName: string;
   brandName: string;
@@ -8,9 +9,33 @@ export interface JobData {
   experienceName: string;
   degreeName: string;
   jobLabels: string[];
+
+  // Boss 信息
   bossName: string;
   bossTitle: string;
   activeTimeDesc: string;
+  bossId?: string;
+  encryptBossId?: string;
+  bossAvatar?: string;
+
+  // 扩展信息
+  lid?: string;
+  securityId?: string;
+  encryptUserId?: string;
+  brandIndustry?: string;
+  brandScaleName?: string;
+  welfareList?: string[];
+
+  // 详情信息（需要点击岗位后获取）
+  postDescription?: string;
+  address?: string;
+  longitude?: number;
+  latitude?: number;
+
+  // 元数据
+  scrapedAt?: number;
+  updatedAt?: number;
+  status?: 'pending' | 'applied' | 'replied' | 'rejected';
 }
 
 /**
@@ -54,6 +79,7 @@ export async function getJobListFromPage(): Promise<JobData[]> {
  */
 function formatJobData(job: any): JobData {
   return {
+    // 基础信息
     encryptJobId: job.encryptJobId || job.encryptId || '',
     jobName: job.jobName || '',
     brandName: job.brandName || '',
@@ -62,9 +88,33 @@ function formatJobData(job: any): JobData {
     experienceName: job.experienceName || '',
     degreeName: job.degreeName || '',
     jobLabels: job.jobLabels || job.skills || [],
+
+    // Boss 信息
     bossName: job.bossName || '',
     bossTitle: job.bossTitle || '',
     activeTimeDesc: job.activeTimeDesc || '',
+    bossId: job.bossId || job.encryptUserId || '',
+    encryptBossId: job.encryptBossId || job.securityId || '',
+    bossAvatar: job.bossAvatar || job.bossIcon || '',
+
+    // 扩展信息
+    lid: job.lid || '',
+    securityId: job.securityId || '',
+    encryptUserId: job.encryptUserId || '',
+    brandIndustry: job.brandIndustry || '',
+    brandScaleName: job.brandScaleName || '',
+    welfareList: job.welfareList || [],
+
+    // 详情信息
+    postDescription: job.postDescription || '',
+    address: job.address || '',
+    longitude: job.longitude,
+    latitude: job.latitude,
+
+    // 元数据
+    scrapedAt: Date.now(),
+    updatedAt: Date.now(),
+    status: 'pending',
   };
 }
 
@@ -148,12 +198,54 @@ export async function waitForPageLoad(timeout = 10000): Promise<boolean> {
 }
 
 /**
- * 保存岗位数据到 storage
+ * 保存岗位数据到 storage（增量更新）
  */
 export async function saveJobsToStorage(jobs: JobData[]): Promise<void> {
   try {
-    await chrome.storage.local.set({ jobs });
-    console.log('岗位数据已保存:', jobs.length);
+    // 加载现有数据
+    const existingJobs = await loadJobsFromStorage();
+    const jobMap = new Map<string, JobData>();
+
+    // 将现有岗位放入 Map
+    existingJobs.forEach(job => {
+      jobMap.set(job.encryptJobId, job);
+    });
+
+    // 更新或添加新岗位
+    let newCount = 0;
+    let updateCount = 0;
+
+    jobs.forEach(job => {
+      if (jobMap.has(job.encryptJobId)) {
+        // 更新现有岗位，保留状态
+        const existing = jobMap.get(job.encryptJobId)!;
+        jobMap.set(job.encryptJobId, {
+          ...job,
+          status: existing.status || 'pending',
+          scrapedAt: existing.scrapedAt || Date.now(),
+          updatedAt: Date.now(),
+        });
+        updateCount++;
+      } else {
+        // 添加新岗位
+        jobMap.set(job.encryptJobId, {
+          ...job,
+          scrapedAt: Date.now(),
+          updatedAt: Date.now(),
+          status: 'pending',
+        });
+        newCount++;
+      }
+    });
+
+    // 转换回数组并保存
+    const allJobs = Array.from(jobMap.values());
+    await chrome.storage.local.set({
+      jobs: allJobs,
+      lastUpdate: Date.now(),
+    });
+
+    console.log(`✅ 岗位数据已保存: 总计 ${allJobs.length} 个 (新增 ${newCount}, 更新 ${updateCount})`);
   } catch (error) {
     console.error('保存岗位数据失败:', error);
   }

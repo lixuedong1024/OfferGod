@@ -3,6 +3,7 @@
 
 export default defineUnlistedScript(() => {
   interface JobData {
+    // 基础信息
     encryptJobId: string;
     jobName: string;
     brandName: string;
@@ -11,12 +12,22 @@ export default defineUnlistedScript(() => {
     experienceName: string;
     degreeName: string;
     jobLabels: string[];
+
+    // Boss 信息
     bossName: string;
     bossTitle: string;
     activeTimeDesc: string;
     bossId?: string;
     encryptBossId?: string;
     bossAvatar?: string;
+
+    // 扩展信息
+    lid?: string;
+    securityId?: string;
+    encryptUserId?: string;
+    brandIndustry?: string;
+    brandScaleName?: string;
+    welfareList?: string[];
   }
 
   interface UserInfo {
@@ -143,6 +154,7 @@ export default defineUnlistedScript(() => {
     }
 
     return jobList.map((job: any) => ({
+      // 基础信息
       encryptJobId: job.encryptJobId || job.encryptId || '',
       jobName: job.jobName || '',
       brandName: job.brandName || '',
@@ -151,12 +163,22 @@ export default defineUnlistedScript(() => {
       experienceName: job.experienceName || '',
       degreeName: job.degreeName || '',
       jobLabels: job.jobLabels || job.skills || [],
+
+      // Boss 信息
       bossName: job.bossName || '',
       bossTitle: job.bossTitle || '',
       activeTimeDesc: job.activeTimeDesc || '',
       bossId: job.bossId || job.encryptUserId || '',
       encryptBossId: job.encryptBossId || job.securityId || '',
       bossAvatar: job.bossAvatar || job.bossIcon || '',
+
+      // 扩展信息
+      lid: job.lid || '',
+      securityId: job.securityId || '',
+      encryptUserId: job.encryptUserId || '',
+      brandIndustry: job.brandIndustry || '',
+      brandScaleName: job.brandScaleName || '',
+      welfareList: job.welfareList || [],
     }));
   }
 
