@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { Logger } from '@/utils/logger';
-import { ChatMessage, decodeMessage, type MessageArgs } from './protobuf';
+import { ChatMessage, MessageReadMessage, decodeMessage, type MessageArgs, type MessageReadArgs } from './protobuf';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -71,11 +71,18 @@ export function useWebSocket() {
     try {
       const decoded = decodeMessage(event.data);
       if (decoded) {
-        Logger.debug('收到 WebSocket 消息', { type: decoded.type, messageCount: decoded.messages?.length });
+        Logger.debug('收到 WebSocket 消息', { type: decoded.type });
 
-        // 触发消息接收事件
-        if (decoded.messages && decoded.messages.length > 0) {
+        // 处理聊天消息
+        if (decoded.type === 1 && decoded.messages && decoded.messages.length > 0) {
+          Logger.debug('收到聊天消息', { messageCount: decoded.messages.length });
           window.dispatchEvent(new CustomEvent('offergod:chat:message', { detail: decoded.messages }));
+        }
+
+        // 处理已读消息
+        if (decoded.type === 6 && decoded.messageRead && decoded.messageRead.length > 0) {
+          Logger.debug('收到已读消息', { readCount: decoded.messageRead.length });
+          window.dispatchEvent(new CustomEvent('offergod:chat:read', { detail: decoded.messageRead }));
         }
       }
     } catch (error) {
@@ -230,6 +237,26 @@ export function useWebSocket() {
     }, config.reconnectInterval);
   }
 
+  // 发送已读消息
+  async function sendMessageRead(args: MessageReadArgs): Promise<{ success: boolean; error?: string }> {
+    if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
+      const error = 'WebSocket 未连接';
+      Logger.error(error, { readyState: ws.value?.readyState });
+      return { success: false, error };
+    }
+
+    try {
+      const message = new MessageReadMessage(args);
+      ws.value.send(message.toArrayBuffer());
+      Logger.debug('发送已读消息成功', { userId: args.userId, messageId: args.messageId });
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      Logger.error('发送已读消息失败', { error: errorMsg, userId: args.userId });
+      return { success: false, error: errorMsg };
+    }
+  }
+
   // 断开连接
   function disconnect() {
     stopHeartbeat();
@@ -255,5 +282,6 @@ export function useWebSocket() {
     connect,
     disconnect,
     sendMessage,
+    sendMessageRead,
   };
 }

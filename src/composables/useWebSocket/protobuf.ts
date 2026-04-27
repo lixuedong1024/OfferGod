@@ -37,9 +37,18 @@ export interface TechwolfMessage {
   cmid?: string;
 }
 
+export interface TechwolfMessageRead {
+  userId: string;
+  messageId: string;
+  readTime: number;
+  sync?: boolean;
+  userSource?: number;
+}
+
 export interface TechwolfChatProtocol {
   type: number;
-  messages: TechwolfMessage[];
+  messages?: TechwolfMessage[];
+  messageRead?: TechwolfMessageRead[];
 }
 
 const Root = protobuf.Root;
@@ -86,9 +95,18 @@ const root = new Root()
       .add(new Field('cmid', 11, 'int64', 'optional')),
   )
   .add(
+    new Type('TechwolfMessageRead')
+      .add(new Field('userId', 1, 'int64'))
+      .add(new Field('messageId', 2, 'int64'))
+      .add(new Field('readTime', 3, 'int64'))
+      .add(new Field('sync', 4, 'bool', 'optional'))
+      .add(new Field('userSource', 5, 'int32', 'optional')),
+  )
+  .add(
     new Type('TechwolfChatProtocol')
       .add(new Field('type', 1, 'int32'))
-      .add(new Field('messages', 3, 'TechwolfMessage', 'repeated')),
+      .add(new Field('messages', 3, 'TechwolfMessage', 'repeated'))
+      .add(new Field('messageRead', 8, 'TechwolfMessageRead', 'repeated')),
   );
 
 export const ChatProtobufType = root.lookupType('TechwolfChatProtocol');
@@ -99,6 +117,12 @@ export interface MessageArgs {
   toName: string;
   content?: string;
   image?: string;
+}
+
+export interface MessageReadArgs {
+  userId: string;
+  messageId: string;
+  userSource?: number;
 }
 
 export class ChatMessage {
@@ -135,6 +159,37 @@ export class ChatMessage {
         },
       ],
       type: 1,
+    };
+
+    this.msg = ChatProtobufType.encode(data).finish().slice();
+    this.hex = [...this.msg].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  toArrayBuffer(): ArrayBuffer {
+    return this.msg.buffer.slice(0, this.msg.byteLength) as ArrayBuffer;
+  }
+}
+
+export class MessageReadMessage {
+  msg: Uint8Array;
+  hex: string;
+  args: MessageReadArgs;
+
+  constructor(args: MessageReadArgs) {
+    this.args = args;
+    const readTime = Date.now();
+
+    const data: TechwolfChatProtocol = {
+      type: 6, // 已读消息类型
+      messageRead: [
+        {
+          userId: args.userId,
+          messageId: args.messageId,
+          readTime,
+          sync: false,
+          userSource: args.userSource || 0,
+        },
+      ],
     };
 
     this.msg = ChatProtobufType.encode(data).finish().slice();

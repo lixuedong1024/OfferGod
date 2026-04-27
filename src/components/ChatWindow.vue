@@ -193,19 +193,53 @@ const handleWebSocketMessage = async (event: CustomEvent) => {
   }
 
   // 处理接收到的消息
-  messages.forEach((msg: any) => {
+  for (const msg of messages) {
     if (msg.to.uid === userInfo.uid && session.value && msg.from.uid === session.value.bossUid) {
       // 添加到当前会话
-      chatStore.addMessage(props.sessionId, {
+      await chatStore.addMessage(props.sessionId, {
         role: 'boss',
         content: msg.body.text || '',
         time: parseInt(msg.time) || Date.now(),
         status: 'read',
       });
+
+      // 自动发送已读回执
+      if (msg.mid && wsClient.isConnected.value) {
+        await wsClient.sendMessageRead({
+          userId: msg.from.uid,
+          messageId: msg.mid,
+          userSource: msg.from.source || 0,
+        });
+      }
     }
-  });
+  }
 
   nextTick(() => scrollToBottom());
+};
+
+// 监听已读消息
+const handleMessageRead = async (event: CustomEvent) => {
+  const readMessages = event.detail;
+  Logger.debug('收到已读消息', { count: readMessages.length });
+
+  // 获取用户信息
+  const data = await chrome.storage.local.get('userInfo');
+  const userInfo = data.userInfo;
+
+  if (!userInfo || !userInfo.uid) {
+    return;
+  }
+
+  // 更新消息状态为已读
+  for (const read of readMessages) {
+    if (read.userId === userInfo.uid && session.value) {
+      // 查找对应的消息并更新状态
+      const message = session.value.messages.find(m => m.id === read.messageId);
+      if (message && message.status !== 'read') {
+        await chatStore.updateMessageStatus(message.id, 'read');
+      }
+    }
+  }
 };
 
 // 监听 WebSocket 错误
@@ -224,12 +258,19 @@ onMounted(() => {
   scrollToBottom();
   // 监听 WebSocket 消息事件
   window.addEventListener('offergod:chat:message', handleWebSocketMessage as EventListener);
+  window.addEventListener('offergod:chat:read', handleMessageRead as EventListener);
   window.addEventListener('offergod:websocket:error', handleWebSocketError as EventListener);
   window.addEventListener('offergod:websocket:close', handleWebSocketClose as EventListener);
+
+  // 标记当前会话为已读
+  if (session.value) {
+    chatStore.markSessionAsRead(props.sessionId);
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('offergod:chat:message', handleWebSocketMessage as EventListener);
+  window.removeEventListener('offergod:chat:read', handleMessageRead as EventListener);
   window.removeEventListener('offergod:websocket:error', handleWebSocketError as EventListener);
   window.removeEventListener('offergod:websocket:close', handleWebSocketClose as EventListener);
 });

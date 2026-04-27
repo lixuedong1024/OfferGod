@@ -162,10 +162,43 @@ export const useChatStore = defineStore('chat', () => {
   // 标记会话为已读
   async function markSessionAsRead(sessionId: string) {
     const session = sessions.value.find(s => s.id === sessionId);
-    if (session) {
+    if (session && session.unreadCount > 0) {
       session.unreadCount = 0;
+
+      // 将所有未读消息标记为已读
+      session.messages.forEach(msg => {
+        if (msg.role === 'boss' && msg.status !== 'read') {
+          msg.status = 'read';
+        }
+      });
+
       await saveSessions();
-      Logger.debug('标记会话已读', { sessionId });
+      Logger.debug('标记会话已读', { sessionId, messageCount: session.messages.length });
+    }
+  }
+
+  // 批量更新消息已读状态
+  async function markMessagesAsRead(sessionId: string, messageIds: string[]) {
+    const session = sessions.value.find(s => s.id === sessionId);
+    if (!session) {
+      Logger.warn('会话不存在', { sessionId });
+      return;
+    }
+
+    let updatedCount = 0;
+    for (const messageId of messageIds) {
+      const message = session.messages.find(m => m.id === messageId);
+      if (message && message.status !== 'read') {
+        message.status = 'read';
+        updatedCount++;
+      }
+    }
+
+    if (updatedCount > 0) {
+      // 重新计算未读数
+      session.unreadCount = session.messages.filter(m => m.role === 'boss' && m.status !== 'read').length;
+      await saveSessions();
+      Logger.debug('批量标记消息已读', { sessionId, updatedCount, remainingUnread: session.unreadCount });
     }
   }
 
@@ -292,6 +325,7 @@ export const useChatStore = defineStore('chat', () => {
     receiveMessage,
     updateMessageStatus,
     markSessionAsRead,
+    markMessagesAsRead,
     setCurrentSession,
     deleteSession,
     clearAllSessions,
