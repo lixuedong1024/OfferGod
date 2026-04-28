@@ -96,7 +96,7 @@ export default defineContentScript({
       if (event.data.type === 'OFFERGOD_USER_INFO_RESULT') {
         userInfo = event.data.userInfo;
 
-        if (userInfo && userInfo.uid) {
+        if (userInfo && userInfo.uid && userInfo.name) {
           Logger.info('收到用户信息', { uid: userInfo.uid, name: userInfo.name });
 
           // 保存用户信息
@@ -104,8 +104,17 @@ export default defineContentScript({
 
           // 自动连接 WebSocket
           connectWebSocket();
+        } else if (userInfo) {
+          // 提供详细的错误信息
+          const missing = [];
+          if (!userInfo.uid) missing.push('uid');
+          if (!userInfo.name) missing.push('name');
+          Logger.warn('用户信息不完整，缺少字段: ' + missing.join(', '), {
+            uid: userInfo.uid || '(空)',
+            name: userInfo.name || '(空)'
+          });
         } else {
-          Logger.warn('用户信息不完整', { userInfo });
+          Logger.warn('用户信息不存在，请确保已登录 Boss 直聘');
         }
       }
     });
