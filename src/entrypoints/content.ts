@@ -197,10 +197,64 @@ export default defineContentScript({
         // 手动触发 WebSocket 连接
         connectWebSocket();
         sendResponse({ success: true });
+      } else if (request.type === 'DELIVER_JOB') {
+        // 处理投递请求
+        handleDeliverJob(request.payload)
+          .then(() => sendResponse({ success: true }))
+          .catch((error) => sendResponse({ success: false, error: String(error) }));
+        return true; // 保持消息通道开启
       }
 
       return true;
     });
+
+    // 处理投递操作
+    async function handleDeliverJob(payload: { jobId: string; bossId: string; greeting: string }) {
+      Logger.info('开始投递岗位', payload);
+
+      if (!userInfo || !userInfo.uid) {
+        throw new Error('用户信息不存在');
+      }
+
+      if (!wsClient || !wsClient.isConnected.value) {
+        throw new Error('WebSocket 未连接');
+      }
+
+      try {
+        // 通过 WebSocket 发送消息
+        const result = await wsClient.sendMessage({
+          fromUid: userInfo.uid,
+          toUid: payload.bossId,
+          toName: payload.bossId,
+          content: payload.greeting,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || '发送消息失败');
+        }
+
+        // 更新岗位状态
+        const data = await chrome.storage.local.get('jobs');
+        const jobs = data.jobs || [];
+        const updatedJobs = jobs.map((job: any) => {
+          if (job.encryptJobId === payload.jobId) {
+            return {
+              ...job,
+              status: 'applied',
+              appliedAt: Date.now(),
+            };
+          }
+          return job;
+        });
+
+        await chrome.storage.local.set({ jobs: updatedJobs });
+
+        Logger.info('投递成功', { jobId: payload.jobId });
+      } catch (error) {
+        Logger.error('投递失败', { error: String(error), jobId: payload.jobId });
+        throw error;
+      }
+    }
 
     Logger.info('OfferGod content script 已加载');
   },

@@ -289,10 +289,56 @@ export function useJobAnalysis() {
     return results;
   }
 
+  /**
+   * 生成打招呼语
+   */
+  async function generateGreeting(job: any, resume: ResumeProfile): Promise<string> {
+    try {
+      // 检查是否配置了 AI 模型
+      if (!modelStore.modelData || modelStore.modelData.length === 0) {
+        Logger.warn('未配置 AI 模型，使用模板生成');
+        return generateDefaultGreeting(job, resume);
+      }
+
+      const model = modelStore.modelData[0];
+      const prompt = `请为以下岗位生成一条专业的打招呼语（100字以内）：
+
+岗位：${job.jobName}
+公司：${job.brandName}
+技能要求：${job.jobLabels?.join('、') || '无'}
+
+候选人信息：
+- 工作经验：${resume.experience}
+- 技能：${resume.skills.join('、')}
+
+要求：
+1. 简洁专业，突出匹配度
+2. 不要使用夸张词汇
+3. 直接返回打招呼语内容，不要其他说明`;
+
+      const llm = modelStore.getModel(model, prompt);
+      const response = await llm.chat();
+
+      return response.trim() || generateDefaultGreeting(job, resume);
+    } catch (error) {
+      Logger.error('AI 生成打招呼语失败', { error: String(error) });
+      return generateDefaultGreeting(job, resume);
+    }
+  }
+
+  /**
+   * 生成默认打招呼语
+   */
+  function generateDefaultGreeting(job: any, resume: ResumeProfile): string {
+    const skills = resume.skills.slice(0, 2).join('、') || '相关技能';
+    return `你好，看到贵司在招聘${job.jobName}，我有${resume.experience}相关经验，特别是在${skills}方面有项目经验，方便聊一下吗？`;
+  }
+
   return {
     analyzing,
     analyzeJobMatch,
     batchAnalyzeJobs,
+    generateGreeting,
     cleanExpiredCache,
   };
 }

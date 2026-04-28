@@ -50,6 +50,9 @@ export const useResumeStore = defineStore('resume', () => {
 
   const loading = ref(false);
 
+  // 兼容别名
+  const resume = profile;
+
   /**
    * 加载简历信息
    */
@@ -69,6 +72,9 @@ export const useResumeStore = defineStore('resume', () => {
       loading.value = false;
     }
   }
+
+  // 兼容别名
+  const loadResume = loadProfile;
 
   /**
    * 保存简历信息
@@ -210,8 +216,10 @@ export const useResumeStore = defineStore('resume', () => {
 
   return {
     profile,
+    resume,
     loading,
     loadProfile,
+    loadResume,
     saveProfile,
     updateProfile,
     addSkill,
