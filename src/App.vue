@@ -14,6 +14,7 @@ import Inbox from './pages/Inbox.vue';
 import DebugLogs from './pages/DebugLogs.vue';
 import AutoDelivery from './pages/AutoDelivery.vue';
 import DeliveryHistory from './pages/DeliveryHistory.vue';
+import Calendar from './pages/Calendar.vue';
 
 const modelStore = useModel();
 const { currentTheme, toggleTheme, loadTheme } = useTheme();
@@ -226,6 +227,7 @@ onMounted(async () => {
         <Jobs v-else-if="currentPage === 'jobs'" />
         <AutoDelivery v-else-if="currentPage === 'delivery'" />
         <DeliveryHistory v-else-if="currentPage === 'history'" />
+        <Calendar v-else-if="currentPage === 'calendar'" />
         <Inbox v-else-if="currentPage === 'inbox'" />
         <Workflow v-else-if="currentPage === 'workflow'" />
         <SearchConfig v-else-if="currentPage === 'search'" />
