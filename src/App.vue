@@ -13,6 +13,7 @@ import Analytics from './pages/Analytics.vue';
 import Inbox from './pages/Inbox.vue';
 import DebugLogs from './pages/DebugLogs.vue';
 import AutoDelivery from './pages/AutoDelivery.vue';
+import DeliveryHistory from './pages/DeliveryHistory.vue';
 
 const modelStore = useModel();
 const { currentTheme, toggleTheme, loadTheme } = useTheme();
@@ -44,6 +45,7 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'jobs', label: '岗位', icon: 'jobs', badge: '47' },
       { id: 'delivery', label: '自动投递', icon: 'rocket' },
+      { id: 'history', label: '投递历史', icon: 'history' },
       { id: 'inbox', label: '沟通', icon: 'inbox' },
       { id: 'calendar', label: '面试日程', icon: 'calendar', badge: '5' },
     ],
@@ -132,6 +134,11 @@ onMounted(async () => {
               <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
               <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
             </svg>
+            <svg v-else-if="item.icon === 'history'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="M12 7v5l4 2"></path>
+            </svg>
             <svg v-else-if="item.icon === 'inbox'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
               <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
@@ -218,6 +225,7 @@ onMounted(async () => {
         <Dashboard v-if="currentPage === 'dashboard'" />
         <Jobs v-else-if="currentPage === 'jobs'" />
         <AutoDelivery v-else-if="currentPage === 'delivery'" />
+        <DeliveryHistory v-else-if="currentPage === 'history'" />
         <Inbox v-else-if="currentPage === 'inbox'" />
         <Workflow v-else-if="currentPage === 'workflow'" />
         <SearchConfig v-else-if="currentPage === 'search'" />
