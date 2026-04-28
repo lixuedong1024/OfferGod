@@ -6,6 +6,7 @@ import { ElMessage, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, E
 import SearchConfigCard from '@/components/SearchConfigCard.vue';
 import ResumeProfileCard from '@/components/ResumeProfileCard.vue';
 import AIScoreCard from '@/components/AIScoreCard.vue';
+import { exportAllData, importAllData, downloadBackup, getAutoBackups, clearAllData } from '@/utils/backup';
 
 const configStore = useConfig();
 const modelStore = useModel();
@@ -13,6 +14,15 @@ const modelStore = useModel();
 const showAddModel = ref(false);
 const selectedModelType = ref('claude');
 const fileInput = ref<HTMLInputElement | null>(null);
+const backupFileInput = ref<HTMLInputElement | null>(null);
+
+// 备份相关
+const showBackupDialog = ref(false);
+const showRestoreDialog = ref(false);
+const backupPassword = ref('');
+const restorePassword = ref('');
+const restoreFile = ref<File | null>(null);
+const autoBackupList = ref<Array<{ timestamp: number; data: string }>>([]);
 
 const newModel = ref({
   name: '',
@@ -76,9 +86,90 @@ async function handleImportFile(event: Event) {
   }
 }
 
+// 备份功能
+async function handleBackup(encrypted: boolean = false) {
+  try {
+    const password = encrypted ? backupPassword.value : undefined;
+    if (encrypted && !password) {
+      ElMessage.warning('请输入加密密码');
+      return;
+    }
+
+    const backupData = await exportAllData(password);
+    downloadBackup(backupData, encrypted);
+    ElMessage.success('备份成功');
+    showBackupDialog.value = false;
+    backupPassword.value = '';
+  } catch (error: any) {
+    ElMessage.error(error.message || '备份失败');
+  }
+}
+
+function openBackupDialog() {
+  showBackupDialog.value = true;
+}
+
+function openRestoreDialog() {
+  backupFileInput.value?.click();
+}
+
+async function handleRestoreFile(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file) {
+    restoreFile.value = file;
+    showRestoreDialog.value = true;
+  }
+}
+
+async function handleRestore() {
+  if (!restoreFile.value) {
+    ElMessage.warning('请选择备份文件');
+    return;
+  }
+
+  try {
+    const fileContent = await restoreFile.value.text();
+    const backup = JSON.parse(fileContent);
+
+    const password = backup.encrypted ? restorePassword.value : undefined;
+    if (backup.encrypted && !password) {
+      ElMessage.warning('此备份已加密，请输入密码');
+      return;
+    }
+
+    await importAllData(fileContent, password);
+    showRestoreDialog.value = false;
+    restorePassword.value = '';
+    restoreFile.value = null;
+  } catch (error: any) {
+    ElMessage.error(error.message || '恢复失败');
+  }
+}
+
+async function loadAutoBackups() {
+  autoBackupList.value = await getAutoBackups();
+}
+
+async function restoreFromAutoBackup(backupData: string) {
+  try {
+    await importAllData(backupData);
+  } catch (error: any) {
+    ElMessage.error(error.message || '恢复失败');
+  }
+}
+
+async function handleClearAllData() {
+  if (confirm('确定要清除所有数据吗？此操作不可恢复！')) {
+    await clearAllData();
+    setTimeout(() => location.reload(), 1000);
+  }
+}
+
 onMounted(async () => {
   await configStore.loadConfig();
   await modelStore.initModel();
+  await loadAutoBackups();
 });
 </script>
 
@@ -197,6 +288,65 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- 数据备份与恢复 -->
+    <div class="card" style="margin-top: 14px">
+      <div class="card-h">
+        <h3>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          数据备份与恢复
+        </h3>
+      </div>
+      <div class="card-body">
+        <div style="display: flex; gap: 10px; margin-bottom: 16px">
+          <button class="btn btn-primary" @click="openBackupDialog">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            备份数据
+          </button>
+          <button class="btn btn-ghost" @click="openRestoreDialog">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            恢复数据
+          </button>
+          <button class="btn btn-ghost" style="color: var(--danger)" @click="handleClearAllData">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            清除所有数据
+          </button>
+        </div>
+
+        <div v-if="autoBackupList.length > 0" class="auto-backup-section">
+          <div class="hr" style="margin: 16px 0"></div>
+          <h4 style="font-size: 12px; color: var(--fg-2); margin-bottom: 12px">自动备份记录（最近 5 个）</h4>
+          <div class="backup-list">
+            <div v-for="(backup, index) in autoBackupList" :key="index" class="backup-item">
+              <div class="backup-info">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>{{ new Date(backup.timestamp).toLocaleString('zh-CN') }}</span>
+              </div>
+              <button class="btn btn-ghost sm" @click="restoreFromAutoBackup(backup.data)">恢复</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <ElDialog v-model="showAddModel" title="添加 AI 模型" width="500px">
       <ElForm :model="newModel" label-width="100px">
         <ElFormItem label="模型名称">
@@ -242,12 +392,72 @@ onMounted(async () => {
       </template>
     </ElDialog>
 
+    <!-- 备份对话框 -->
+    <ElDialog v-model="showBackupDialog" title="备份数据" width="450px">
+      <div style="margin-bottom: 16px">
+        <p style="font-size: 13px; color: var(--fg-2); margin-bottom: 12px">
+          备份将包含所有配置、AI 模型、简历、投递记录等数据
+        </p>
+        <ElForm label-width="80px">
+          <ElFormItem label="加密密码">
+            <ElInput
+              v-model="backupPassword"
+              type="password"
+              placeholder="留空则不加密（可选）"
+              clearable
+            />
+          </ElFormItem>
+        </ElForm>
+      </div>
+      <template #footer>
+        <ElButton @click="showBackupDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="handleBackup(!!backupPassword)">
+          {{ backupPassword ? '加密备份' : '备份' }}
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <!-- 恢复对话框 -->
+    <ElDialog v-model="showRestoreDialog" title="恢复数据" width="450px">
+      <div style="margin-bottom: 16px">
+        <p style="font-size: 13px; color: var(--fg-2); margin-bottom: 12px">
+          恢复数据将覆盖当前所有配置，建议先备份当前数据
+        </p>
+        <ElForm label-width="80px">
+          <ElFormItem label="备份文件">
+            <div style="font-size: 12px; color: var(--fg-1)">
+              {{ restoreFile?.name || '未选择文件' }}
+            </div>
+          </ElFormItem>
+          <ElFormItem label="解密密码">
+            <ElInput
+              v-model="restorePassword"
+              type="password"
+              placeholder="如果备份已加密，请输入密码"
+              clearable
+            />
+          </ElFormItem>
+        </ElForm>
+      </div>
+      <template #footer>
+        <ElButton @click="showRestoreDialog = false">取消</ElButton>
+        <ElButton type="primary" @click="handleRestore">恢复</ElButton>
+      </template>
+    </ElDialog>
+
     <input
       ref="fileInput"
       type="file"
       accept=".json"
       style="display: none"
       @change="handleImportFile"
+    />
+    <input
+      ref="backupFileInput"
+      type="file"
+      accept=".json"
+      style="display: none"
+      @change="handleRestoreFile"
     />
   </div>
 </template>
@@ -271,5 +481,32 @@ onMounted(async () => {
 .hr {
   height: 1px;
   background: var(--line);
+}
+
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.backup-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-1);
+}
+
+.backup-info svg {
+  color: var(--fg-3);
 }
 </style>
