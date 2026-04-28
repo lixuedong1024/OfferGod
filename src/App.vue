@@ -12,6 +12,7 @@ import SearchConfig from './pages/SearchConfig.vue';
 import Analytics from './pages/Analytics.vue';
 import Inbox from './pages/Inbox.vue';
 import DebugLogs from './pages/DebugLogs.vue';
+import AutoDelivery from './pages/AutoDelivery.vue';
 
 const modelStore = useModel();
 const { currentTheme, toggleTheme, loadTheme } = useTheme();
@@ -42,6 +43,7 @@ const NAV: NavGroup[] = [
     group: '求职',
     items: [
       { id: 'jobs', label: '岗位', icon: 'jobs', badge: '47' },
+      { id: 'delivery', label: '自动投递', icon: 'rocket' },
       { id: 'inbox', label: '沟通', icon: 'inbox' },
       { id: 'calendar', label: '面试日程', icon: 'calendar', badge: '5' },
     ],
@@ -123,6 +125,12 @@ onMounted(async () => {
             <svg v-else-if="item.icon === 'jobs'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            <svg v-else-if="item.icon === 'rocket'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+              <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+              <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
             </svg>
             <svg v-else-if="item.icon === 'inbox'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
@@ -209,6 +217,7 @@ onMounted(async () => {
       <div class="content">
         <Dashboard v-if="currentPage === 'dashboard'" />
         <Jobs v-else-if="currentPage === 'jobs'" />
+        <AutoDelivery v-else-if="currentPage === 'delivery'" />
         <Inbox v-else-if="currentPage === 'inbox'" />
         <Workflow v-else-if="currentPage === 'workflow'" />
         <SearchConfig v-else-if="currentPage === 'search'" />
