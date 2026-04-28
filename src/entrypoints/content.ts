@@ -92,7 +92,7 @@ export default defineContentScript({
         }
       }
 
-      // 处理用户信息
+      // 处理用户信息（可选功能，失败不影响主要功能）
       if (event.data.type === 'OFFERGOD_USER_INFO_RESULT') {
         userInfo = event.data.userInfo;
 
@@ -104,25 +104,15 @@ export default defineContentScript({
 
           // 自动连接 WebSocket
           connectWebSocket();
-        } else if (userInfo) {
-          // 提供详细的错误信息
-          const missing = [];
-          if (!userInfo.uid) missing.push('uid');
-          if (!userInfo.name) missing.push('name');
-          Logger.warn('用户信息不完整，缺少字段: ' + missing.join(', '), {
-            uid: userInfo.uid || '(空)',
-            name: userInfo.name || '(空)'
-          });
-        } else {
-          Logger.warn('用户信息不存在，请确保已登录 Boss 直聘');
         }
+        // 用户信息获取失败时静默处理，不影响主要功能
       }
     });
 
-    // 连接 WebSocket
+    // 连接 WebSocket（可选功能）
     function connectWebSocket() {
       if (!userInfo || !userInfo.uid) {
-        Logger.warn('用户信息不存在，无法连接 WebSocket');
+        // 用户信息不存在时静默返回，不影响主要功能
         return;
       }
 
@@ -222,7 +212,7 @@ export default defineContentScript({
       Logger.info('开始投递岗位', payload);
 
       if (!userInfo || !userInfo.uid) {
-        throw new Error('用户信息不存在');
+        throw new Error('投递功能需要用户信息，请刷新页面重试');
       }
 
       if (!wsClient || !wsClient.isConnected.value) {

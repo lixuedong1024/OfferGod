@@ -21,9 +21,8 @@ export const useUserStore = defineStore('user', () => {
       if (data.userInfo) {
         userInfo.value = data.userInfo;
         Logger.info('加载用户信息成功', { uid: userInfo.value.uid, name: userInfo.value.name });
-      } else {
-        Logger.warn('用户信息不存在');
       }
+      // 用户信息不存在时静默处理
     } catch (error) {
       Logger.error('加载用户信息失败', { error: String(error) });
     }

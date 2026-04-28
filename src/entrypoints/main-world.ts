@@ -40,7 +40,7 @@ export default defineUnlistedScript(() => {
   let vueInstance: any = null;
   let pageChangeAction: any = null;
 
-  // 获取用户信息
+  // 获取用户信息（可选功能）
   function getUserInfo(): UserInfo | null {
     try {
       let userInfo: UserInfo | null = null;
@@ -52,7 +52,6 @@ export default defineUnlistedScript(() => {
         const name = user.name || user.userName || user.nickname || '';
 
         if (uid && name) {
-          console.log('✅ 从 __INITIAL_STATE__ 获取用户信息', { uid, name });
           userInfo = {
             uid,
             name,
@@ -72,7 +71,6 @@ export default defineUnlistedScript(() => {
             const name = user.name || user.userName || user.nickname || '';
 
             if (uid && name) {
-              console.log('✅ 从 localStorage 获取用户信息', { uid, name });
               userInfo = {
                 uid,
                 name,
@@ -81,60 +79,18 @@ export default defineUnlistedScript(() => {
               };
             }
           } catch (e) {
-            console.warn('⚠️ localStorage 用户信息解析失败', e);
+            // 解析失败，继续尝试其他方法
           }
         }
       }
 
-      // 方法3: 从 cookie 获取 UID，从页面元素获取名称
-      if (!userInfo) {
-        const cookies = document.cookie.split(';');
-        const uidCookie = cookies.find(c => c.trim().startsWith('uid='));
-
-        if (uidCookie) {
-          const uid = uidCookie.split('=')[1]?.trim();
-
-          // 尝试从页面元素获取用户名
-          let name = '';
-          const nameSelectors = [
-            '.user-name',
-            '.header-user-name',
-            '[class*="user"][class*="name"]',
-            '.nav-user-name'
-          ];
-
-          for (const selector of nameSelectors) {
-            const element = document.querySelector(selector);
-            if (element?.textContent?.trim()) {
-              name = element.textContent.trim();
-              break;
-            }
-          }
-
-          // 如果没找到名称，使用默认值
-          if (!name) {
-            name = '求职者';
-          }
-
-          if (uid) {
-            console.log('✅ 从 cookie 和页面获取用户信息', { uid, name });
-            userInfo = {
-              uid,
-              name,
-              avatar: '',
-            };
-          }
-        }
-      }
-
-      // 方法4: 尝试从全局变量获取
+      // 方法3: 从全局变量获取
       if (!userInfo && (window as any).g_user) {
         const user = (window as any).g_user;
         const uid = user.uid || user.userId || user.id || '';
         const name = user.name || user.userName || user.nickname || '';
 
         if (uid && name) {
-          console.log('✅ 从 g_user 获取用户信息', { uid, name });
           userInfo = {
             uid,
             name,
@@ -144,14 +100,8 @@ export default defineUnlistedScript(() => {
         }
       }
 
-      if (!userInfo) {
-        console.warn('⚠️ 未找到用户信息，请确保已登录 Boss 直聘');
-        return null;
-      }
-
       return userInfo;
     } catch (error) {
-      console.error('❌ 获取用户信息失败:', error);
       return null;
     }
   }
@@ -364,17 +314,6 @@ export default defineUnlistedScript(() => {
       }, '*');
     }
   });
-
-  // 页面加载完成后自动发送用户信息
-  setTimeout(() => {
-    const userInfo = getUserInfo();
-    if (userInfo) {
-      window.postMessage({
-        type: 'OFFERGOD_USER_INFO_RESULT',
-        userInfo: userInfo,
-      }, '*');
-    }
-  }, 2000);
 
   console.log('✅ OfferGod main-world 脚本已加载');
 });
