@@ -7,6 +7,7 @@ import { claude } from './claude';
 import type { openaiLLMConf } from './openai';
 import { openai } from './openai';
 import type { llm, prompt } from './type';
+import { encryptSensitiveFields, decryptSensitiveFields } from '@/utils/secureStorage';
 
 export const confModelKey = 'conf-model';
 
@@ -44,8 +45,19 @@ export const useModel = defineStore('model', () => {
     // 从 storage 加载配置
     const data = await chrome.storage.local.get(confModelKey);
     const models = data[confModelKey] || [];
-    console.log('加载 AI 模型配置:', models);
-    modelData.value.push(...models);
+
+    // 解密敏感字段
+    const decryptedModels = await Promise.all(
+      models.map(async (model: modelData) => {
+        if (model.data) {
+          model.data = await decryptSensitiveFields(model.data, ['apiKey']);
+        }
+        return model;
+      })
+    );
+
+    console.log('加载 AI 模型配置:', decryptedModels.length, '个模型');
+    modelData.value.push(...decryptedModels);
   }
 
   function getModel(
@@ -76,8 +88,19 @@ export const useModel = defineStore('model', () => {
   }
 
   async function save() {
+    // 加密敏感字段
+    const encryptedModels = await Promise.all(
+      toRaw(modelData.value).map(async (model: modelData) => {
+        const modelCopy = { ...model };
+        if (modelCopy.data) {
+          modelCopy.data = await encryptSensitiveFields(modelCopy.data, ['api_key']);
+        }
+        return modelCopy;
+      })
+    );
+
     await chrome.storage.local.set({
-      [confModelKey]: toRaw(modelData.value),
+      [confModelKey]: encryptedModels,
     });
     ElMessage.success('保存成功');
   }
