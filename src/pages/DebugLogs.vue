@@ -19,19 +19,21 @@
       </el-radio-group>
     </div>
 
-    <div class="log-list">
-      <div
-        v-for="log in filteredLogs"
-        :key="log.timestamp"
-        :class="['log-item', `level-${log.level}`]"
-      >
-        <div class="log-header">
-          <span :class="['level-badge', `level-${log.level}`]">{{ log.level.toUpperCase() }}</span>
-          <span class="timestamp">{{ formatTime(log.timestamp) }}</span>
-        </div>
-        <div class="log-message">{{ log.message }}</div>
-        <div v-if="log.data" class="log-data">
-          <pre>{{ JSON.stringify(log.data, null, 2) }}</pre>
+    <div class="log-list" v-bind="containerProps">
+      <div v-bind="wrapperProps">
+        <div
+          v-for="{ data: log, index } in virtualLogs"
+          :key="log.timestamp"
+          :class="['log-item', `level-${log.level}`]"
+        >
+          <div class="log-header">
+            <span :class="['level-badge', `level-${log.level}`]">{{ log.level.toUpperCase() }}</span>
+            <span class="timestamp">{{ formatTime(log.timestamp) }}</span>
+          </div>
+          <div class="log-message">{{ log.message }}</div>
+          <div v-if="log.data" class="log-data">
+            <pre>{{ JSON.stringify(log.data, null, 2) }}</pre>
+          </div>
         </div>
       </div>
 
@@ -44,6 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useVirtualList } from '@vueuse/core';
 import { Refresh, Download, Delete } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Logger } from '@/utils/logger';
@@ -64,6 +67,15 @@ const filteredLogs = computed(() => {
   }
   return logs.value.filter(log => log.level === filterLevel.value);
 });
+
+// 虚拟滚动配置
+const { list: virtualLogs, containerProps, wrapperProps } = useVirtualList(
+  filteredLogs,
+  {
+    itemHeight: 120,
+    overscan: 3,
+  }
+);
 
 // 统计各级别日志数量
 function countByLevel(level: string) {

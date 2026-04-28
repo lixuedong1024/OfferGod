@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useVirtualList } from '@vueuse/core';
 import type { JobData } from '../utils/jobScraper';
 import JobDetail from './JobDetail.vue';
 
@@ -26,6 +27,15 @@ const filteredJobs = computed(() => {
   }
   return jobs.value.filter(j => j.status === selectedFilter.value);
 });
+
+// 虚拟滚动配置
+const { list: virtualList, containerProps, wrapperProps } = useVirtualList(
+  filteredJobs,
+  {
+    itemHeight: 80,
+    overscan: 5,
+  }
+);
 
 // 从 storage 加载岗位数据
 const loadJobs = async () => {
@@ -166,42 +176,44 @@ onMounted(() => {
       <p style="font-size: 12px;">请在 Boss 直聘岗位列表页面点击"抓取岗位"按钮</p>
     </div>
 
-    <div v-else class="job-list">
-      <div
-        v-for="job in filteredJobs"
-        :key="job.id"
-        class="job-row"
-        @click="viewJobDetail(job.id)"
-      >
-        <div class="job-logo">{{ job.company[0] }}</div>
-        <div class="job-main">
-          <div class="title">
-            <span>{{ job.title }}</span>
-            <span class="salary">{{ job.salary }}</span>
-          </div>
-          <div class="meta">
-            <span>{{ job.company }}</span>
-            <span class="sp">·</span>
-            <span>{{ job.location }}</span>
-            <span class="sp">·</span>
-            <span>{{ job.experience }}</span>
-          </div>
-        </div>
-        <div class="job-side">
-          <div class="score">
-            <div class="score-bar">
-              <div class="score-bar-fill" :style="{ width: job.score + '%' }"></div>
+    <div v-else class="job-list" v-bind="containerProps" style="height: calc(100vh - 280px); overflow-y: auto;">
+      <div v-bind="wrapperProps">
+        <div
+          v-for="{ data: job, index } in virtualList"
+          :key="job.id"
+          class="job-row"
+          @click="viewJobDetail(job.id)"
+        >
+          <div class="job-logo">{{ job.company[0] }}</div>
+          <div class="job-main">
+            <div class="title">
+              <span>{{ job.title }}</span>
+              <span class="salary">{{ job.salary }}</span>
             </div>
-            <span class="score-num">{{ job.score }}</span>
+            <div class="meta">
+              <span>{{ job.company }}</span>
+              <span class="sp">·</span>
+              <span>{{ job.location }}</span>
+              <span class="sp">·</span>
+              <span>{{ job.experience }}</span>
+            </div>
           </div>
-          <span
-            :class="[
-              'pill',
-              job.status === 'ready' ? 'info' : job.status === 'sent' ? 'warn' : 'accent',
-            ]"
-          >
-            {{ job.status === 'ready' ? '待投递' : job.status === 'sent' ? '已投递' : '已回复' }}
-          </span>
+          <div class="job-side">
+            <div class="score">
+              <div class="score-bar">
+                <div class="score-bar-fill" :style="{ width: job.score + '%' }"></div>
+              </div>
+              <span class="score-num">{{ job.score }}</span>
+            </div>
+            <span
+              :class="[
+                'pill',
+                job.status === 'ready' ? 'info' : job.status === 'sent' ? 'warn' : 'accent',
+              ]"
+            >
+              {{ job.status === 'ready' ? '待投递' : job.status === 'sent' ? '已投递' : '已回复' }}
+            </span>
+          </div>
         </div>
       </div>
     </div>

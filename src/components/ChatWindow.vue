@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { useVirtualList } from '@vueuse/core';
 import { useChatStore } from '@/stores/chat';
 import { useWebSocket } from '@/composables/useWebSocket';
 import { Logger } from '@/utils/logger';
@@ -32,6 +33,25 @@ const displayMessages = computed(() => {
     time: formatTime(msg.time),
   }));
 });
+
+// 虚拟滚动配置
+const { list: virtualMessages, containerProps, wrapperProps, scrollTo } = useVirtualList(
+  displayMessages,
+  {
+    itemHeight: 80,
+    overscan: 5,
+  }
+);
+
+// 监听消息变化，自动滚动到底部
+watch(
+  () => displayMessages.value.length,
+  () => {
+    nextTick(() => {
+      scrollTo(displayMessages.value.length - 1);
+    });
+  }
+);
 
 // 格式化时间
 const formatTime = (timestamp: number) => {
@@ -107,7 +127,9 @@ const sendMessage = async () => {
     }
 
     await nextTick();
-    scrollToBottom();
+    if (displayMessages.value.length > 0) {
+      scrollTo(displayMessages.value.length - 1);
+    }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     showErrorMessage('发送消息时出现错误: ' + errorMsg);
@@ -163,10 +185,10 @@ const retryMessage = async (messageId: string) => {
   }
 };
 
-// 滚动到底部
+// 滚动到底部（保留用于初始化）
 const scrollToBottom = () => {
-  if (chatContainer.value) {
-    chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+  if (displayMessages.value.length > 0) {
+    scrollTo(displayMessages.value.length - 1);
   }
 };
 
@@ -214,7 +236,11 @@ const handleWebSocketMessage = async (event: CustomEvent) => {
     }
   }
 
-  nextTick(() => scrollToBottom());
+  nextTick(() => {
+    if (displayMessages.value.length > 0) {
+      scrollTo(displayMessages.value.length - 1);
+    }
+  });
 };
 
 // 监听已读消息
@@ -317,29 +343,31 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div ref="chatContainer" class="chat-messages">
+      <div ref="chatContainer" class="chat-messages" v-bind="containerProps">
         <div v-if="displayMessages.length === 0" style="text-align: center; padding: 40px; color: var(--fg-2);">
           <p style="font-size: 13px;">暂无消息</p>
           <p style="font-size: 11px; margin-top: 8px;">开始与 HR 沟通吧</p>
         </div>
-        <div v-for="msg in displayMessages" :key="msg.id" :class="['chat-message', msg.role]">
-          <div class="message-avatar">{{ msg.name[0] }}</div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="message-name">{{ msg.name }}</span>
-              <span class="message-time">{{ msg.time }}</span>
-              <span v-if="msg.role === 'user' && msg.status === 'sending'" class="message-status">发送中...</span>
-              <span v-else-if="msg.role === 'user' && msg.status === 'failed'" class="message-status" style="color: var(--danger);">
-                发送失败
-                <button class="btn-retry" @click="retryMessage(msg.id)" title="重试">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                  </svg>
-                </button>
-              </span>
+        <div v-bind="wrapperProps">
+          <div v-for="{ data: msg, index } in virtualMessages" :key="msg.id" :class="['chat-message', msg.role]">
+            <div class="message-avatar">{{ msg.name[0] }}</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-name">{{ msg.name }}</span>
+                <span class="message-time">{{ msg.time }}</span>
+                <span v-if="msg.role === 'user' && msg.status === 'sending'" class="message-status">发送中...</span>
+                <span v-else-if="msg.role === 'user' && msg.status === 'failed'" class="message-status" style="color: var(--danger);">
+                  发送失败
+                  <button class="btn-retry" @click="retryMessage(msg.id)" title="重试">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <div class="message-text">{{ msg.content }}</div>
             </div>
-            <div class="message-text">{{ msg.content }}</div>
           </div>
         </div>
       </div>
