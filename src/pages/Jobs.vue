@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useVirtualList } from '@vueuse/core';
+import { useBatchOperation } from '@/composables/useBatchOperation';
 import type { JobData } from '../utils/jobScraper';
 import JobDetail from './JobDetail.vue';
 
@@ -20,6 +21,23 @@ const selectedFilter = ref('all');
 const loading = ref(false);
 const maxPages = ref(5); // 默认抓取5页
 const selectedJobId = ref<string | null>(null);
+const batchMode = ref(false); // 批量操作模式
+
+// 批量操作
+const {
+  selectedIds,
+  selectedCount,
+  isProcessing,
+  progress,
+  toggleSelection,
+  selectAll,
+  clearSelection,
+  invertSelection,
+  isSelected,
+  isAllSelected,
+  isIndeterminate,
+  executeBatch,
+} = useBatchOperation();
 
 const filteredJobs = computed(() => {
   if (selectedFilter.value === 'all') {
@@ -101,6 +119,159 @@ const backToList = () => {
   selectedJobId.value = null;
 };
 
+// 切换批量操作模式
+const toggleBatchMode = () => {
+  batchMode.value = !batchMode.value;
+  if (!batchMode.value) {
+    clearSelection();
+  }
+};
+
+// 全选/取消全选
+const handleSelectAll = () => {
+  if (isAllSelected(filteredJobs.value.length)) {
+    clearSelection();
+  } else {
+    selectAll(filteredJobs.value.map(j => j.id));
+  }
+};
+
+// 批量投递
+const batchDeliver = async () => {
+  if (selectedCount.value === 0) {
+    alert('请先选择要投递的岗位');
+    return;
+  }
+
+  if (!confirm(`确定要投递选中的 ${selectedCount.value} 个岗位吗？`)) {
+    return;
+  }
+
+  const selectedJobs = jobs.value.filter(j => isSelected(j.id));
+
+  await executeBatch(
+    selectedJobs,
+    async (job) => {
+      // 模拟投递操作
+      console.log('投递岗位:', job.title, job.company);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 更新状态
+      job.status = 'sent';
+    },
+    {
+      onSuccess: (count) => {
+        alert(`成功投递 ${count} 个岗位`);
+        clearSelection();
+        batchMode.value = false;
+      },
+      onError: (error) => {
+        alert('批量投递失败: ' + error.message);
+      },
+      onProgress: (current, total) => {
+        console.log(`投递进度: ${current}/${total}`);
+      },
+    }
+  );
+};
+
+// 批量标记状态
+const batchMarkStatus = async (status: Job['status']) => {
+  if (selectedCount.value === 0) {
+    alert('请先选择要标记的岗位');
+    return;
+  }
+
+  const statusText = status === 'ready' ? '待投递' : status === 'sent' ? '已投递' : '已回复';
+  if (!confirm(`确定要将选中的 ${selectedCount.value} 个岗位标记为"${statusText}"吗？`)) {
+    return;
+  }
+
+  const selectedJobs = jobs.value.filter(j => isSelected(j.id));
+
+  await executeBatch(
+    selectedJobs,
+    async (job) => {
+      job.status = status;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    },
+    {
+      onSuccess: (count) => {
+        alert(`成功标记 ${count} 个岗位`);
+        clearSelection();
+      },
+      onError: (error) => {
+        alert('批量标记失败: ' + error.message);
+      },
+    }
+  );
+};
+
+// 批量删除
+const batchDelete = async () => {
+  if (selectedCount.value === 0) {
+    alert('请先选择要删除的岗位');
+    return;
+  }
+
+  if (!confirm(`确定要删除选中的 ${selectedCount.value} 个岗位吗？此操作不可恢复！`)) {
+    return;
+  }
+
+  const selectedJobIds = Array.from(selectedIds.value);
+  jobs.value = jobs.value.filter(j => !selectedJobIds.includes(j.id));
+
+  // 保存到 storage
+  try {
+    const jobsData = await chrome.storage.local.get('jobs');
+    const updatedJobs = (jobsData.jobs || []).filter(
+      (job: JobData) => !selectedJobIds.includes(job.encryptJobId)
+    );
+    await chrome.storage.local.set({ jobs: updatedJobs });
+    alert(`成功删除 ${selectedJobIds.length} 个岗位`);
+  } catch (error) {
+    alert('删除失败: ' + error);
+  }
+
+  clearSelection();
+  batchMode.value = false;
+};
+
+// 批量导出
+const batchExport = () => {
+  if (selectedCount.value === 0) {
+    alert('请先选择要导出的岗位');
+    return;
+  }
+
+  const selectedJobs = jobs.value.filter(j => isSelected(j.id));
+  const csv = [
+    '岗位名称,公司名称,薪资,地点,经验要求,评分,状态',
+    ...selectedJobs.map(job =>
+      `"${job.title}","${job.company}","${job.salary}","${job.location}","${job.experience}",${job.score},"${job.status === 'ready' ? '待投递' : job.status === 'sent' ? '已投递' : '已回复'}"`
+    )
+  ].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `岗位列表_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  alert(`成功导出 ${selectedCount.value} 个岗位`);
+};
+
+// 处理岗位点击
+const handleJobClick = (jobId: string, event: MouseEvent) => {
+  if (batchMode.value) {
+    event.stopPropagation();
+    toggleSelection(jobId);
+  } else {
+    viewJobDetail(jobId);
+  }
+};
+
 onMounted(() => {
   loadJobs();
 
@@ -124,10 +295,15 @@ onMounted(() => {
     <div class="page-h">
       <div>
         <h1>岗位列表</h1>
-        <div class="sub">共 {{ jobs.length }} 个岗位</div>
+        <div class="sub">
+          共 {{ jobs.length }} 个岗位
+          <span v-if="batchMode && selectedCount > 0" style="margin-left: 8px; color: var(--primary);">
+            · 已选择 {{ selectedCount }} 个
+          </span>
+        </div>
       </div>
       <div class="actions">
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div v-if="!batchMode" style="display: flex; gap: 10px; align-items: center;">
           <span style="font-size: 12px; color: var(--fg-2);">抓取页数:</span>
           <input
             v-model.number="maxPages"
@@ -139,8 +315,38 @@ onMounted(() => {
           <button class="btn" @click="refreshJobs" :disabled="loading">
             {{ loading ? '抓取中...' : '抓取岗位' }}
           </button>
+          <button class="btn" @click="toggleBatchMode">批量操作</button>
         </div>
-        <button class="btn btn-primary">开始投递</button>
+        <div v-else style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-sm" @click="handleSelectAll">
+            {{ isAllSelected(filteredJobs.length) ? '取消全选' : '全选' }}
+          </button>
+          <button class="btn btn-sm" @click="invertSelection(filteredJobs.map(j => j.id))">
+            反选
+          </button>
+          <button class="btn btn-sm btn-primary" @click="batchDeliver" :disabled="selectedCount === 0 || isProcessing">
+            {{ isProcessing ? `投递中 ${progress.current}/${progress.total}` : '批量投递' }}
+          </button>
+          <div class="dropdown">
+            <button class="btn btn-sm" :disabled="selectedCount === 0">
+              标记状态 ▼
+            </button>
+            <div class="dropdown-menu">
+              <button @click="batchMarkStatus('ready')">待投递</button>
+              <button @click="batchMarkStatus('sent')">已投递</button>
+              <button @click="batchMarkStatus('replied')">已回复</button>
+            </div>
+          </div>
+          <button class="btn btn-sm" @click="batchExport" :disabled="selectedCount === 0">
+            导出
+          </button>
+          <button class="btn btn-sm" @click="batchDelete" :disabled="selectedCount === 0" style="color: var(--danger);">
+            删除
+          </button>
+          <button class="btn btn-sm btn-ghost" @click="toggleBatchMode">
+            取消
+          </button>
+        </div>
       </div>
     </div>
 
@@ -181,9 +387,12 @@ onMounted(() => {
         <div
           v-for="{ data: job, index } in virtualList"
           :key="job.id"
-          class="job-row"
-          @click="viewJobDetail(job.id)"
+          :class="['job-row', { selected: batchMode && isSelected(job.id) }]"
+          @click="handleJobClick(job.id, $event)"
         >
+          <div v-if="batchMode" class="job-checkbox" @click.stop="toggleSelection(job.id)">
+            <input type="checkbox" :checked="isSelected(job.id)" />
+          </div>
           <div class="job-logo">{{ job.company[0] }}</div>
           <div class="job-main">
             <div class="title">
@@ -220,3 +429,89 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.job-row {
+  position: relative;
+  transition: all 0.2s;
+}
+
+.job-row.selected {
+  background: rgba(20, 184, 166, 0.1);
+  border-color: var(--primary);
+}
+
+.job-checkbox {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.job-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.job-row.selected .job-logo,
+.job-row.selected .job-main,
+.job-row.selected .job-side {
+  margin-left: 30px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 120px;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--fg-0);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-menu button:hover {
+  background: var(--bg-3);
+}
+
+.dropdown-menu button:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.dropdown-menu button:last-child {
+  border-radius: 0 0 6px 6px;
+}
+</style>
