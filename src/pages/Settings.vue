@@ -15,6 +15,8 @@ const showAddModel = ref(false);
 const selectedModelType = ref('claude');
 const fileInput = ref<HTMLInputElement | null>(null);
 const backupFileInput = ref<HTMLInputElement | null>(null);
+const testingModel = ref(false);
+const testResult = ref<{ success: boolean; message: string } | null>(null);
 
 // 备份相关
 const showBackupDialog = ref(false);
@@ -90,6 +92,105 @@ function onModelChange(modelValue: string) {
   }
 }
 
+// 测试模型连接
+async function testModelConnection() {
+  // 验证必填字段
+  if (!newModel.value.api_key.trim()) {
+    ElMessage.warning('请先输入 API Key');
+    return;
+  }
+  if (!newModel.value.model.trim()) {
+    ElMessage.warning('请先选择模型');
+    return;
+  }
+
+  testingModel.value = true;
+  testResult.value = null;
+
+  try {
+    const baseUrl = newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl;
+
+    if (newModel.value.mode === 'claude') {
+      // 测试 Claude API
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': newModel.value.api_key,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: newModel.value.model,
+          max_tokens: 100,
+          messages: [
+            { role: 'user', content: '请回复"测试成功"' }
+          ]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        testResult.value = {
+          success: true,
+          message: `连接成功！模型响应：${data.content?.[0]?.text || '正常'}`
+        };
+        ElMessage.success('模型测试成功');
+      } else {
+        const error = await response.json();
+        testResult.value = {
+          success: false,
+          message: `连接失败：${error.error?.message || response.statusText}`
+        };
+        ElMessage.error('模型测试失败');
+      }
+    } else {
+      // 测试 OpenAI 兼容 API
+      const apiUrl = newModel.value.mode === 'custom'
+        ? baseUrl
+        : `${baseUrl}/chat/completions`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${newModel.value.api_key}`,
+        },
+        body: JSON.stringify({
+          model: newModel.value.model,
+          messages: [
+            { role: 'user', content: '请回复"测试成功"' }
+          ],
+          max_tokens: 100,
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        testResult.value = {
+          success: true,
+          message: `连接成功！模型响应：${data.choices?.[0]?.message?.content || '正常'}`
+        };
+        ElMessage.success('模型测试成功');
+      } else {
+        const error = await response.json();
+        testResult.value = {
+          success: false,
+          message: `连接失败：${error.error?.message || response.statusText}`
+        };
+        ElMessage.error('模型测试失败');
+      }
+    }
+  } catch (error: any) {
+    testResult.value = {
+      success: false,
+      message: `网络错误：${error.message}`
+    };
+    ElMessage.error('测试失败：' + error.message);
+  } finally {
+    testingModel.value = false;
+  }
+}
+
 function addModel() {
   showAddModel.value = true;
 }
@@ -157,6 +258,67 @@ function saveNewModel() {
 function deleteModel(key: string) {
   modelStore.modelData = modelStore.modelData.filter(m => m.key !== key);
   modelStore.saveModel();
+}
+
+// 测试已保存的模型
+async function testSavedModel(model: any) {
+  const testingKey = `testing_${model.key}`;
+  (model as any)[testingKey] = true;
+
+  try {
+    const baseUrl = model.data?.base_url || modelPresets[model.data?.mode as keyof typeof modelPresets]?.defaultBaseUrl;
+
+    if (model.data?.mode === 'claude') {
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': model.data.api_key,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: model.data.model,
+          max_tokens: 100,
+          messages: [{ role: 'user', content: '请回复"测试成功"' }]
+        })
+      });
+
+      if (response.ok) {
+        ElMessage.success(`${model.name} 测试成功`);
+      } else {
+        const error = await response.json();
+        ElMessage.error(`${model.name} 测试失败：${error.error?.message || response.statusText}`);
+      }
+    } else {
+      const apiUrl = model.data?.mode === 'custom'
+        ? baseUrl
+        : `${baseUrl}/chat/completions`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${model.data.api_key}`,
+        },
+        body: JSON.stringify({
+          model: model.data.model,
+          messages: [{ role: 'user', content: '请回复"测试成功"' }],
+          max_tokens: 100,
+        })
+      });
+
+      if (response.ok) {
+        ElMessage.success(`${model.name} 测试成功`);
+      } else {
+        const error = await response.json();
+        ElMessage.error(`${model.name} 测试失败：${error.error?.message || response.statusText}`);
+      }
+    }
+  } catch (error: any) {
+    ElMessage.error(`${model.name} 测试失败：${error.message}`);
+  } finally {
+    delete (model as any)[testingKey];
+  }
 }
 
 async function saveConfig() {
@@ -331,7 +493,19 @@ onMounted(async () => {
                 </span>
                 {{ model.name }}
               </h3>
-              <button class="btn btn-ghost sm" @click="deleteModel(model.key)">删除</button>
+              <div style="display: flex; gap: 8px">
+                <button
+                  class="btn btn-ghost sm"
+                  :disabled="(model as any)[`testing_${model.key}`]"
+                  @click="testSavedModel(model)"
+                >
+                  <svg v-if="!(model as any)[`testing_${model.key}`]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                  </svg>
+                  {{ (model as any)[`testing_${model.key}`] ? '测试中...' : '测试' }}
+                </button>
+                <button class="btn btn-ghost sm" @click="deleteModel(model.key)">删除</button>
+              </div>
             </div>
             <div class="card-body">
               <div style="font-size: 11.5px; color: var(--fg-2); line-height: 1.6">
@@ -636,13 +810,30 @@ onMounted(async () => {
 
       <template #footer>
         <div style="display: flex; justify-content: space-between; align-items: center">
-          <div style="font-size: 11px; color: var(--fg-3)">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            配置保存后立即生效
+          <div style="display: flex; align-items: center; gap: 12px">
+            <ElButton
+              :loading="testingModel"
+              :disabled="!newModel.api_key || !newModel.model"
+              @click="testModelConnection"
+            >
+              <svg v-if="!testingModel" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+              {{ testingModel ? '测试中...' : '测试连接' }}
+            </ElButton>
+            <div v-if="testResult" style="font-size: 11px; display: flex; align-items: center; gap: 4px">
+              <svg v-if="testResult.success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span :style="{ color: testResult.success ? '#52c41a' : '#ff4d4f' }">
+                {{ testResult.message }}
+              </span>
+            </div>
           </div>
           <div style="display: flex; gap: 8px">
             <ElButton @click="showAddModel = false">取消</ElButton>
