@@ -110,86 +110,63 @@ async function testModelConnection() {
   testResult.value = null;
 
   try {
-    const baseUrl = newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl;
-
-    if (newModel.value.mode === 'claude') {
-      // 测试 Claude API
-      const response = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': newModel.value.api_key,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: newModel.value.model,
-          max_tokens: 100,
-          messages: [
-            { role: 'user', content: '请回复"测试成功"' }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        testResult.value = {
-          success: true,
-          message: `连接成功！模型响应：${data.content?.[0]?.text || '正常'}`
-        };
-        ElMessage.success('模型测试成功');
-      } else {
-        const error = await response.json();
-        testResult.value = {
-          success: false,
-          message: `连接失败：${error.error?.message || response.statusText}`
-        };
-        ElMessage.error('模型测试失败');
+    // 使用 modelStore.getModel 来测试，这样使用的是与实际相同的调用方式
+    const testModelData: any = {
+      key: 'test-connection',
+      name: 'Test',
+      data: {
+        mode: newModel.value.mode,
+        api_key: newModel.value.api_key,
+        base_url: newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl,
+        model: newModel.value.model,
+        temperature: newModel.value.temperature || 0.7,
+        max_tokens: newModel.value.max_tokens || 8192,
       }
+    };
+
+    const llmInstance = modelStore.getModel(testModelData, '测试连接');
+
+    // 调用 chat 方法测试
+    const response = await llmInstance.chat('请回复"测试成功"');
+
+    if (response && response.length > 0) {
+      testResult.value = {
+        success: true,
+        message: `连接成功！模型响应：${response.substring(0, 50)}${response.length > 50 ? '...' : ''}`
+      };
+      ElMessage.success('模型测试成功');
     } else {
-      // 测试 OpenAI 兼容 API
-      const apiUrl = newModel.value.mode === 'custom'
-        ? baseUrl
-        : `${baseUrl}/chat/completions`;
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${newModel.value.api_key}`,
-        },
-        body: JSON.stringify({
-          model: newModel.value.model,
-          messages: [
-            { role: 'user', content: '请回复"测试成功"' }
-          ],
-          max_tokens: 100,
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        testResult.value = {
-          success: true,
-          message: `连接成功！模型响应：${data.choices?.[0]?.message?.content || '正常'}`
-        };
-        ElMessage.success('模型测试成功');
-      } else {
-        const error = await response.json();
-        testResult.value = {
-          success: false,
-          message: `连接失败：${error.error?.message || response.statusText}`
-        };
-        ElMessage.error('模型测试失败');
-      }
+      testResult.value = {
+        success: false,
+        message: '模型返回空响应'
+      };
+      ElMessage.error('模型测试失败：返回空响应');
     }
   } catch (error: any) {
     console.error('测试连接失败:', error);
 
+    let errorMessage = '连接失败';
+
+    if (error.message) {
+      // 解析常见错误
+      if (error.message.includes('API key')) {
+        errorMessage = 'API Key 无效或已过期';
+      } else if (error.message.includes('model')) {
+        errorMessage = '模型不存在或无权访问';
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = 'API 调用频率超限，请稍后重试';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = '网络连接失败，请检查网络或 API 端点地址';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     testResult.value = {
       success: false,
-      message: '测试失败，但不影响实际使用。请保存后在实际场景中验证'
+      message: errorMessage
     };
-    ElMessage.warning('测试连接失败，但配置可能仍然有效，请保存后在实际使用中验证');
+    ElMessage.error('测试失败：' + errorMessage);
   } finally {
     testingModel.value = false;
   }
