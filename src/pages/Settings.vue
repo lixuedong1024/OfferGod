@@ -110,63 +110,58 @@ async function testModelConnection() {
   testResult.value = null;
 
   try {
-    // 使用 modelStore.getModel 来测试，这样使用的是与实际相同的调用方式
-    const testModelData: any = {
-      key: 'test-connection',
-      name: 'Test',
-      data: {
-        mode: newModel.value.mode,
-        api_key: newModel.value.api_key,
-        base_url: newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl,
-        model: newModel.value.model,
-        temperature: newModel.value.temperature || 0.7,
-        max_tokens: newModel.value.max_tokens || 8192,
-      }
-    };
+    const baseUrl = newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl;
 
-    const llmInstance = modelStore.getModel(testModelData, '测试连接');
+    // 简单的端点连通性测试（类似 cc-switch 的方式）
+    // 只测试能否连接到 API 端点，不发送完整的 API 请求
+    const testUrl = new URL(baseUrl);
 
-    // 调用 chat 方法测试
-    const response = await llmInstance.chat('请回复"测试成功"');
-
-    if (response && response.length > 0) {
-      testResult.value = {
-        success: true,
-        message: `连接成功！模型响应：${response.substring(0, 50)}${response.length > 50 ? '...' : ''}`
-      };
-      ElMessage.success('模型测试成功');
-    } else {
-      testResult.value = {
-        success: false,
-        message: '模型返回空响应'
-      };
-      ElMessage.error('模型测试失败：返回空响应');
+    // 第一次请求：热身，建立连接
+    const warmupStart = performance.now();
+    try {
+      await fetch(testUrl.origin, {
+        method: 'HEAD',
+        mode: 'no-cors', // 避免 CORS 问题
+      });
+    } catch (e) {
+      // 忽略热身请求的错误
     }
+
+    // 第二次请求：实际测试并计时
+    const start = performance.now();
+    const response = await fetch(testUrl.origin, {
+      method: 'HEAD',
+      mode: 'no-cors',
+      cache: 'no-cache',
+    });
+
+    const latency = Math.round(performance.now() - start);
+
+    // no-cors 模式下 response.ok 总是 false，但能到这里说明连接成功
+    testResult.value = {
+      success: true,
+      message: `端点可达！延迟: ${latency}ms`
+    };
+    ElMessage.success(`连接测试成功 (${latency}ms)`);
+
   } catch (error: any) {
     console.error('测试连接失败:', error);
 
     let errorMessage = '连接失败';
 
-    if (error.message) {
-      // 解析常见错误
-      if (error.message.includes('API key')) {
-        errorMessage = 'API Key 无效或已过期';
-      } else if (error.message.includes('model')) {
-        errorMessage = '模型不存在或无权访问';
-      } else if (error.message.includes('rate limit')) {
-        errorMessage = 'API 调用频率超限，请稍后重试';
-      } else if (error.message.includes('network') || error.message.includes('fetch')) {
-        errorMessage = '网络连接失败，请检查网络或 API 端点地址';
-      } else {
-        errorMessage = error.message;
-      }
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = '无法连接到 API 端点，请检查网络或端点地址';
+    } else if (error.message.includes('timeout')) {
+      errorMessage = '连接超时，请检查网络或更换端点';
+    } else {
+      errorMessage = `错误：${error.message}`;
     }
 
     testResult.value = {
       success: false,
       message: errorMessage
     };
-    ElMessage.error('测试失败：' + errorMessage);
+    ElMessage.error('连接测试失败：' + errorMessage);
   } finally {
     testingModel.value = false;
   }
