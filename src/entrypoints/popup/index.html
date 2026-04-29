@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OfferGod - Offer之神</title>
+  <script type="module" src="./main.ts"></script>
   <style>
     * {
       margin: 0;
@@ -129,62 +130,5 @@
       点击"打开工作台"查看完整功能
     </div>
   </div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      // 加载今日投递数据
-      const data = await chrome.storage.local.get(['todayCount', 'engineRunning']);
-
-      if (data.todayCount) {
-        document.getElementById('todayCount').textContent = data.todayCount;
-      }
-
-      if (data.engineRunning) {
-        document.getElementById('engineStatus').textContent = '运行中';
-        document.getElementById('engineStatus').style.color = '#4ade80';
-      }
-
-      // 打开工作台
-      document.getElementById('openDashboard').addEventListener('click', async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (tab.url && tab.url.includes('zhipin.com')) {
-          // 在当前标签页注入内容脚本
-          try {
-            await chrome.tabs.sendMessage(tab.id, { action: 'openDashboard' });
-            window.close();
-          } catch (error) {
-            console.error('发送消息失败:', error);
-            // 刷新页面重新加载 content script
-            chrome.tabs.reload(tab.id);
-            window.close();
-          }
-        } else {
-          // 打开 Boss 直聘
-          chrome.tabs.create({ url: 'https://www.zhipin.com/web/geek/job' });
-          window.close();
-        }
-      });
-
-      // 打开设置
-      document.getElementById('openSettings').addEventListener('click', async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (tab.url && tab.url.includes('zhipin.com')) {
-          try {
-            await chrome.tabs.sendMessage(tab.id, { action: 'openSettings' });
-            window.close();
-          } catch (error) {
-            console.error('发送消息失败:', error);
-            // 刷新页面重新加载 content script
-            chrome.tabs.reload(tab.id);
-            window.close();
-          }
-        } else {
-          alert('请先访问 Boss 直聘网站');
-        }
-      });
-    });
-  </script>
 </body>
 </html>

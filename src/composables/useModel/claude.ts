@@ -198,6 +198,74 @@ class ClaudeGpt extends llm<claudeLLMConf> {
 
     return ans;
   }
+
+  /**
+   * 解析 PDF 文档
+   * @param pdfFile PDF 文件对象
+   * @param question 要问的问题
+   * @param useCache 是否使用 prompt caching（重复使用同一文档时可节省成本）
+   */
+  async parseDocument(
+    pdfFile: File,
+    question: string,
+    useCache: boolean = true
+  ): Promise<messageReps> {
+    try {
+      // 读取 PDF 文件并转换为 base64
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const base64Data = btoa(String.fromCharCode(...uint8Array));
+
+      const ans: messageReps = { prompt: question };
+
+      // 构建消息内容
+      const content: any[] = [
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: base64Data,
+          },
+          // 使用 cache_control 标记文档内容可缓存
+          ...(useCache ? { cache_control: { type: 'ephemeral' } } : {}),
+        },
+        {
+          type: 'text',
+          text: question,
+        },
+      ];
+
+      const response = await this.client.messages.create({
+        model: this.conf.model,
+        max_tokens: this.conf.max_tokens || 4096,
+        temperature: this.conf.temperature,
+        top_p: this.conf.top_p,
+        top_k: this.conf.top_k,
+        messages: [
+          {
+            role: 'user',
+            content,
+          },
+        ],
+      });
+
+      const responseContent = response.content[0];
+      ans.content = responseContent.type === 'text' ? responseContent.text : '';
+
+      ans.usage = {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+        cache_creation_input_tokens: (response.usage as any).cache_creation_input_tokens,
+        cache_read_input_tokens: (response.usage as any).cache_read_input_tokens,
+      };
+
+      return ans;
+    } catch (error: any) {
+      throw new Error(`Claude PDF 解析失败: ${error.message}`);
+    }
+  }
 }
 
 export const claude = {

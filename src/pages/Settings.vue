@@ -194,9 +194,11 @@ async function testModelConnection() {
       let errorMessage = '连接失败';
 
       if (response.isTimeout) {
-        errorMessage = '连接超时（8秒），请检查网络或更换端点';
+        errorMessage = '连接超时，请检查网络或更换端点';
+      } else if (response.isPermissionError) {
+        errorMessage = '权限错误：请重新加载扩展或检查 host_permissions 配置';
       } else if (response.isNetworkError) {
-        errorMessage = '无法连接到 API 端点，请检查网络或端点地址';
+        errorMessage = '网络错误：无法连接到 API 端点\n\n可能原因：\n1. 扩展权限不足（请重新加载扩展）\n2. API 端点地址错误\n3. 网络连接问题\n4. CORS 策略限制';
       } else if (response.error) {
         errorMessage = `错误：${response.error}`;
       }

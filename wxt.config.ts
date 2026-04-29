@@ -7,13 +7,14 @@ export default defineConfig({
   manifest: {
     name: 'OfferGod - Offer之神',
     description: 'AI加持的智能求职神器，助你斩获心仪Offer！支持Claude、GPT等多种AI模型',
-    permissions: ['storage', 'tabs', 'webRequest', 'notifications'],
+    permissions: ['storage', 'tabs', 'notifications'],
     host_permissions: [
       '*://*.zhipin.com/*',
-      '*://api.anthropic.com/*',
-      '*://api.openai.com/*',
-      '*://api.deepseek.com/*',
-      '*://*/*'
+      'https://api.anthropic.com/*',
+      'https://api.openai.com/*',
+      'https://api.deepseek.com/*',
+      'https://*/*',
+      'http://*/*'
     ],
     action: {
       default_title: 'OfferGod - Offer之神',

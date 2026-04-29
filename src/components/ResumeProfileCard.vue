@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useConfig } from '@/composables/useConfig';
-import { ElButton, ElMessage } from 'element-plus';
+import { useModel } from '@/composables/useModel';
+import { useResumeStore } from '@/stores/resume';
+import { ElButton, ElMessage, ElMessageBox } from 'element-plus';
+import { validatePDFFile, parseResumeWithAI } from '@/utils/resumeParser';
+import { Logger } from '@/utils/logger';
 
 const configStore = useConfig();
+const modelStore = useModel();
+const resumeStore = useResumeStore();
 const resumeProfile = computed(() => configStore.config.resume);
 
 const fileInput = ref<HTMLInputElement | null>(null);
+const parsing = ref(false);
 
 function triggerFileUpload() {
   fileInput.value?.click();
@@ -18,36 +25,131 @@ async function handleFileUpload(event: Event) {
 
   if (!file) return;
 
-  if (!file.name.endsWith('.pdf')) {
-    ElMessage.error('仅支持 PDF 格式的简历');
-    return;
-  }
-
-  const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
-
-  // 模拟简历解析
-  const mockTags = [
-    'ROS', 'ROS2', 'Linux', 'Python', 'Shell',
-    '机器人运维', '现场调试', '远程支持', '客户对接',
-    '英语 CET6', '5 年经验', '北京'
-  ];
-
-  const mockPreferences = '偏好机器人/AGV 行业，可接受 30% 出差但不接受长期驻场；倾向技术栈现代（含 Python/K8s/云端监控），抗拒纯硬件维修岗。';
-
-  configStore.updateResumeProfile({
-    fileName: file.name,
-    fileSize: `${sizeInMB} MB`,
-    uploadDate: new Date().toLocaleDateString('zh-CN'),
-    tags: mockTags,
-    preferences: mockPreferences,
-    parsed: true,
+  parsing.value = true;
+  const loadingMsg = ElMessage.info({
+    message: '正在使用 Claude AI 解析简历，请稍候...',
+    duration: 0,
   });
 
-  ElMessage.success('简历上传成功');
+  try {
+    // 1. 验证 PDF 文件
+    Logger.info('开始验证 PDF 文件', { fileName: file.name });
+    validatePDFFile(file);
+
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+
+    // 2. 直接使用 Claude AI 解析 PDF 简历
+    Logger.info('开始 Claude AI 解析简历');
+    const parsedResume = await parseResumeWithAI(file, modelStore);
+    Logger.info('AI 解析成功', {
+      name: parsedResume.name,
+      skills: parsedResume.skills.length,
+      projects: parsedResume.projects.length
+    });
+
+    // 3. 保存到配置存储（用于简历画像卡片显示）
+    configStore.updateResumeProfile({
+      fileName: file.name,
+      fileSize: `${sizeInMB} MB`,
+      uploadDate: new Date().toLocaleDateString('zh-CN'),
+      tags: parsedResume.skills,
+      preferences: parsedResume.preferences,
+      parsed: true,
+    });
+
+    // 4. 保存到简历存储（用于岗位匹配分析）
+    await resumeStore.updateProfile({
+      name: parsedResume.name,
+      email: parsedResume.email,
+      phone: parsedResume.phone,
+      location: parsedResume.location,
+      experience: parsedResume.experience,
+      currentPosition: parsedResume.currentPosition,
+      currentCompany: parsedResume.currentCompany,
+      education: parsedResume.education,
+      major: parsedResume.major,
+      school: parsedResume.school,
+      skills: parsedResume.skills,
+      projects: parsedResume.projects,
+      strengths: parsedResume.strengths,
+      expectedSalary: parsedResume.expectedSalary,
+      expectedLocation: parsedResume.expectedLocation,
+      expectedPosition: parsedResume.expectedPosition,
+    });
+
+    // 5. 保存配置
+    await configStore.saveConfig();
+
+    loadingMsg.close();
+    ElMessage.success({
+      message: `简历解析成功！提取了 ${parsedResume.skills.length} 个技能标签`,
+      duration: 3000,
+    });
+
+    Logger.info('简历上传和解析完成', {
+      fileName: file.name,
+      skills: parsedResume.skills.length,
+      projects: parsedResume.projects.length,
+    });
+  } catch (error) {
+    loadingMsg.close();
+    Logger.error('简历解析失败', { error: String(error) });
+
+    let errorMessage = '简历解析失败';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+
+      // 针对常见错误提供更友好的提示
+      if (errorMessage.includes('仅支持 Claude 模型')) {
+        errorMessage = '简历解析功能需要配置 Claude 模型。请在设置中配置 Claude API。';
+      } else if (errorMessage.includes('未配置 AI 模型')) {
+        errorMessage = '请先在设置中配置 Claude AI 模型后再上传简历。';
+      }
+    }
+
+    ElMessage.error({
+      message: errorMessage,
+      duration: 5000,
+    });
+  } finally {
+    parsing.value = false;
+    // 清空 input，允许重新上传同一文件
+    if (target) {
+      target.value = '';
+    }
+  }
 }
 
-function editPreferences() {
-  ElMessage.info('编辑偏好功能开发中');
+async function editPreferences() {
+  if (!resumeProfile.value) return;
+
+  try {
+    const { value } = await ElMessageBox.prompt('请输入您的求职偏好', '编辑求职偏好', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+      inputValue: resumeProfile.value.preferences,
+      inputPlaceholder: '例如：偏好互联网行业，技术栈倾向 Java + 微服务，可接受适度加班...',
+      inputValidator: (value) => {
+        if (!value || value.trim().length < 10) {
+          return '求职偏好至少需要 10 个字符';
+        }
+        return true;
+      },
+    });
+
+    if (value) {
+      configStore.updateResumeProfile({
+        ...resumeProfile.value,
+        preferences: value.trim(),
+      });
+      await configStore.saveConfig();
+      ElMessage.success('求职偏好已更新');
+    }
+  } catch (error) {
+    // 用户取消操作
+    Logger.debug('用户取消编辑偏好');
+  }
 }
 </script>
 

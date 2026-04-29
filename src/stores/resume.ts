@@ -214,6 +214,43 @@ export const useResumeStore = defineStore('resume', () => {
     return score;
   }
 
+  /**
+   * 获取简历摘要（用于岗位匹配）
+   */
+  function getResumeSummary(): string {
+    const parts: string[] = [];
+
+    if (profile.value.name) {
+      parts.push(`姓名：${profile.value.name}`);
+    }
+
+    if (profile.value.currentPosition) {
+      parts.push(`当前职位：${profile.value.currentPosition}`);
+    }
+
+    if (profile.value.experience) {
+      parts.push(`工作经验：${profile.value.experience}`);
+    }
+
+    if (profile.value.education) {
+      parts.push(`学历：${profile.value.education}`);
+    }
+
+    if (profile.value.skills && profile.value.skills.length > 0) {
+      parts.push(`技能：${profile.value.skills.join('、')}`);
+    }
+
+    if (profile.value.strengths && profile.value.strengths.length > 0) {
+      parts.push(`优势：${profile.value.strengths.join('；')}`);
+    }
+
+    if (profile.value.projects && profile.value.projects.length > 0) {
+      parts.push(`项目经验：\n${profile.value.projects.map((p, i) => `${i + 1}. ${p}`).join('\n')}`);
+    }
+
+    return parts.join('\n');
+  }
+
   return {
     profile,
     resume,
@@ -231,5 +268,6 @@ export const useResumeStore = defineStore('resume', () => {
     clearProfile,
     isProfileComplete,
     getProfileCompleteness,
+    getResumeSummary,
   };
 });

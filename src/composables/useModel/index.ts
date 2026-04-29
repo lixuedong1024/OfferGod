@@ -46,11 +46,11 @@ export const useModel = defineStore('model', () => {
     const data = await chrome.storage.local.get(confModelKey);
     const models = data[confModelKey] || [];
 
-    // 解密敏感字段
+    // 解密敏感字段（使用 api_key 与模型配置保持一致）
     const decryptedModels = await Promise.all(
       models.map(async (model: modelData) => {
         if (model.data) {
-          model.data = await decryptSensitiveFields(model.data, ['apiKey']);
+          model.data = await decryptSensitiveFields(model.data, ['api_key']);
         }
         return model;
       })
@@ -89,7 +89,7 @@ export const useModel = defineStore('model', () => {
   }
 
   async function save() {
-    // 加密敏感字段
+    // 加密敏感字段（使用 api_key 与模型配置保持一致）
     const encryptedModels = await Promise.all(
       toRaw(modelData.value).map(async (model: modelData) => {
         const modelCopy = { ...model };
