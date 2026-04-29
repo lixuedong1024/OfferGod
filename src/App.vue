@@ -4,7 +4,8 @@ import { useModel } from '@/composables/useModel';
 import { useTheme } from '@/composables/useTheme';
 import { useChatStore } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
-import { errorHandler } from '@/utils/errorHandler';
+import { errorHandler, ErrorType } from '@/utils/errorHandler';
+import { useErrorNotification } from '@/composables/useErrorNotification';
 import { Logger } from '@/utils/logger';
 import Dashboard from './pages/Dashboard.vue';
 import Jobs from './pages/Jobs.vue';
@@ -23,6 +24,37 @@ const modelStore = useModel();
 const { currentTheme, toggleTheme, loadTheme } = useTheme();
 const chatStore = useChatStore();
 const userStore = useUserStore();
+const { show } = useErrorNotification();
+
+// 错误类型到通知类型的映射
+const errorTypeMap: Record<ErrorType, 'error' | 'warning' | 'info'> = {
+  [ErrorType.NETWORK]: 'error',
+  [ErrorType.BUSINESS]: 'warning',
+  [ErrorType.SYSTEM]: 'error',
+  [ErrorType.UNKNOWN]: 'error',
+};
+
+// 错误类型到标题的映射
+const errorTitleMap: Record<ErrorType, string> = {
+  [ErrorType.NETWORK]: '网络错误',
+  [ErrorType.BUSINESS]: '操作失败',
+  [ErrorType.SYSTEM]: '系统错误',
+  [ErrorType.UNKNOWN]: '未知错误',
+};
+
+// 设置错误处理器的通知回调
+errorHandler.setNotificationCallback((error, onRetry) => {
+  show({
+    type: errorTypeMap[error.type],
+    title: errorTitleMap[error.type],
+    message: error.message,
+    duration: 5000,
+    action: onRetry ? {
+      label: '重试',
+      handler: onRetry
+    } : undefined
+  });
+});
 
 // 全局错误捕获
 onErrorCaptured((err, instance, info) => {

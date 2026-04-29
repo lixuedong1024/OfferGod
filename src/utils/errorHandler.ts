@@ -2,7 +2,6 @@
  * 全局错误处理工具
  */
 
-import { ElMessage } from 'element-plus';
 import { Logger } from './logger';
 
 export enum ErrorType {
@@ -23,11 +22,19 @@ export interface ErrorInfo {
 class ErrorHandler {
   private errorQueue: ErrorInfo[] = [];
   private maxQueueSize = 50;
+  private notificationCallback?: (error: ErrorInfo, onRetry?: () => void) => void;
+
+  /**
+   * 设置通知回调
+   */
+  setNotificationCallback(callback: (error: ErrorInfo, onRetry?: () => void) => void): void {
+    this.notificationCallback = callback;
+  }
 
   /**
    * 处理错误
    */
-  handle(error: Error | string, type: ErrorType = ErrorType.UNKNOWN): void {
+  handle(error: Error | string, type: ErrorType = ErrorType.UNKNOWN, onRetry?: () => void): void {
     const errorInfo: ErrorInfo = {
       type,
       message: typeof error === 'string' ? error : error.message,
@@ -49,25 +56,16 @@ class ErrorHandler {
     });
 
     // 显示用户提示
-    this.showUserMessage(errorInfo);
+    this.showUserMessage(errorInfo, onRetry);
   }
 
   /**
    * 显示用户提示
    */
-  private showUserMessage(error: ErrorInfo): void {
-    const messages: Record<ErrorType, string> = {
-      [ErrorType.NETWORK]: '网络连接失败，请检查网络后重试',
-      [ErrorType.BUSINESS]: error.message,
-      [ErrorType.SYSTEM]: '系统错误，我们已记录此问题',
-      [ErrorType.UNKNOWN]: '发生了一个错误，请稍后重试',
-    };
-
-    ElMessage.error({
-      message: messages[error.type] || error.message,
-      duration: 5000,
-      showClose: true,
-    });
+  private showUserMessage(error: ErrorInfo, onRetry?: () => void): void {
+    if (this.notificationCallback) {
+      this.notificationCallback(error, onRetry);
+    }
   }
 
   /**
