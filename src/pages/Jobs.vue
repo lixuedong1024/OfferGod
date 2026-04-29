@@ -23,6 +23,8 @@ interface Job {
 const jobs = ref<Job[]>([]);
 const selectedFilter = ref('all');
 const loading = ref(false);
+const calculating = ref(false); // 匹配计算状态
+const calculatingProgress = ref({ current: 0, total: 0 }); // 计算进度
 const maxPages = ref(5); // 默认抓取5页
 const selectedJobId = ref<string | null>(null);
 const batchMode = ref(false); // 批量操作模式
@@ -69,6 +71,18 @@ const loadJobs = async () => {
       // 加载简历数据
       const resume = await loadResumeData();
 
+      // 统计需要计算匹配度的岗位数量
+      const jobsNeedCalculation = data.jobs.filter((job: JobData) => {
+        const jobData = job as JobDataType;
+        return resume && job.postDescription &&
+               (!jobData.matchResult || jobData.matchResult.calculatedAt <= Date.now() - 24 * 60 * 60 * 1000);
+      });
+
+      if (jobsNeedCalculation.length > 0) {
+        calculating.value = true;
+        calculatingProgress.value = { current: 0, total: jobsNeedCalculation.length };
+      }
+
       // 处理每个岗位
       const jobPromises = data.jobs.map(async (job: JobData) => {
         let score = 75; // 默认分数
@@ -105,6 +119,9 @@ const loadJobs = async () => {
               // 缓存结果到 storage
               jobData.matchResult = matchResult;
               jobData.requirement = requirement;
+
+              // 更新进度
+              calculatingProgress.value.current++;
             }
           } catch (error) {
             Logger.warn('计算匹配度失败，使用默认分数', { jobId: job.encryptJobId, error: String(error) });
@@ -127,6 +144,10 @@ const loadJobs = async () => {
 
       // 保存更新后的岗位数据（包含匹配结果缓存）
       await chrome.storage.local.set({ jobs: data.jobs });
+
+      // 重置计算状态
+      calculating.value = false;
+      calculatingProgress.value = { current: 0, total: 0 };
 
       console.log('✅ 加载岗位数据成功:', {
         数量: jobs.value.length,
@@ -354,6 +375,9 @@ onMounted(() => {
           共 {{ jobs.length }} 个岗位
           <span v-if="batchMode && selectedCount > 0" style="margin-left: 8px; color: var(--primary);">
             · 已选择 {{ selectedCount }} 个
+          </span>
+          <span v-if="calculating" style="margin-left: 8px; color: var(--primary);">
+            · 正在计算匹配度 {{ calculatingProgress.current }}/{{ calculatingProgress.total }}
           </span>
         </div>
       </div>

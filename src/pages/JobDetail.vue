@@ -60,6 +60,7 @@ const greeting = ref('');
 const tone = ref<'professional' | 'friendly' | 'concise'>('professional');
 const generating = ref(false);
 const loading = ref(true);
+const calculating = ref(false); // 匹配计算状态
 const sending = ref(false);
 
 // 投递岗位
@@ -177,6 +178,9 @@ const loadJobDetail = async () => {
             missing = matchResult.missingItems;
             aiSuggestion = matchResult.aiSuggestion;
           } else {
+            // 显示计算状态
+            calculating.value = true;
+
             // 重新计算
             const requirement = await parseJobDescription(
               jobData.encryptJobId,
@@ -208,8 +212,12 @@ const loadJobDetail = async () => {
               j.encryptJobId === props.jobId ? jobDataTyped : j
             );
             await chrome.storage.local.set({ jobs: updatedJobs });
+
+            // 隐藏计算状态
+            calculating.value = false;
           }
         } catch (error) {
+          calculating.value = false;
           Logger.warn('计算匹配度失败，使用默认值', { error: String(error) });
           matched = ['工作经验符合要求'];
           missing = ['建议补充相关项目经验'];
@@ -441,6 +449,9 @@ onMounted(() => {
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
               AI 匹配分析
+              <span v-if="calculating" style="margin-left: 8px; font-size: 12px; color: var(--primary); font-weight: normal;">
+                (计算中...)
+              </span>
             </h3>
             <div class="score-badge">{{ job.score }}</div>
           </div>
