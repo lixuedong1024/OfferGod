@@ -28,23 +28,108 @@ const newModel = ref({
   name: '',
   mode: 'claude',
   api_key: '',
-  model: 'claude-3-5-sonnet-20241022',
+  base_url: '',
+  model: 'claude-opus-4-7',
   temperature: 0.7,
-  max_tokens: 4096,
+  max_tokens: 8192,
 });
+
+// 预设的模型配置
+const modelPresets = {
+  claude: {
+    defaultBaseUrl: 'https://api.anthropic.com',
+    models: [
+      { label: 'Claude Opus 4.7 (最强推理)', value: 'claude-opus-4-7', tokens: 200000 },
+      { label: 'Claude Sonnet 4.6 (平衡)', value: 'claude-sonnet-4-6', tokens: 200000 },
+      { label: 'Claude Haiku 4.5 (快速)', value: 'claude-haiku-4-5', tokens: 200000 },
+      { label: 'Claude 3.5 Sonnet (旧版)', value: 'claude-3-5-sonnet-20241022', tokens: 200000 },
+      { label: 'Claude 3 Opus (旧版)', value: 'claude-3-opus-20240229', tokens: 200000 },
+    ]
+  },
+  openai: {
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    models: [
+      { label: 'GPT-4o (最新)', value: 'gpt-4o', tokens: 128000 },
+      { label: 'GPT-4o-mini (快速)', value: 'gpt-4o-mini', tokens: 128000 },
+      { label: 'GPT-4 Turbo', value: 'gpt-4-turbo', tokens: 128000 },
+      { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo', tokens: 16385 },
+    ]
+  },
+  deepseek: {
+    defaultBaseUrl: 'https://api.deepseek.com/v1',
+    models: [
+      { label: 'DeepSeek Chat', value: 'deepseek-chat', tokens: 64000 },
+      { label: 'DeepSeek Coder', value: 'deepseek-coder', tokens: 64000 },
+    ]
+  },
+  custom: {
+    defaultBaseUrl: '',
+    models: []
+  }
+};
+
+// 当模型类型改变时，更新默认值
+function onModelTypeChange(type: string) {
+  selectedModelType.value = type;
+  const preset = modelPresets[type as keyof typeof modelPresets];
+  if (preset) {
+    newModel.value.base_url = preset.defaultBaseUrl;
+    if (preset.models.length > 0) {
+      newModel.value.model = preset.models[0].value;
+      newModel.value.max_tokens = preset.models[0].tokens;
+    }
+  }
+}
+
+// 当选择模型时，更新 max_tokens
+function onModelChange(modelValue: string) {
+  const preset = modelPresets[newModel.value.mode as keyof typeof modelPresets];
+  const model = preset?.models.find(m => m.value === modelValue);
+  if (model) {
+    newModel.value.max_tokens = model.tokens;
+  }
+}
 
 function addModel() {
   showAddModel.value = true;
 }
 
 function saveNewModel() {
+  // 验证必填字段
+  if (!newModel.value.name.trim()) {
+    ElMessage.warning('请输入模型名称');
+    return;
+  }
+  if (!newModel.value.api_key.trim()) {
+    ElMessage.warning('请输入 API Key');
+    return;
+  }
+  if (!newModel.value.model.trim()) {
+    ElMessage.warning('请选择模型');
+    return;
+  }
+
+  // 验证 base_url 格式
+  if (newModel.value.base_url && !newModel.value.base_url.startsWith('http')) {
+    ElMessage.warning('API 端点必须以 http:// 或 https:// 开头');
+    return;
+  }
+
+  const modelColors: Record<string, string> = {
+    claude: '#CC9B7A',
+    openai: '#10A37F',
+    deepseek: '#1E88E5',
+    custom: '#9C27B0'
+  };
+
   const modelData = {
     key: Date.now().toString(),
     name: newModel.value.name,
-    color: selectedModelType.value === 'claude' ? '#CC9B7A' : '#10A37F',
+    color: modelColors[newModel.value.mode] || '#666',
     data: {
       mode: newModel.value.mode,
       api_key: newModel.value.api_key,
+      base_url: newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl || '',
       model: newModel.value.model,
       temperature: newModel.value.temperature,
       max_tokens: newModel.value.max_tokens,
@@ -54,6 +139,18 @@ function saveNewModel() {
   modelStore.modelData.push(modelData as any);
   modelStore.saveModel();
   showAddModel.value = false;
+
+  // 重置表单
+  newModel.value = {
+    name: '',
+    mode: 'claude',
+    api_key: '',
+    base_url: '',
+    model: 'claude-opus-4-7',
+    temperature: 0.7,
+    max_tokens: 8192,
+  };
+
   ElMessage.success('模型添加成功');
 }
 
@@ -237,9 +334,23 @@ onMounted(async () => {
               <button class="btn btn-ghost sm" @click="deleteModel(model.key)">删除</button>
             </div>
             <div class="card-body">
-              <div style="font-size: 11.5px; color: var(--fg-2)">
-                <div>模型: {{ model.data?.model }}</div>
-                <div>API Key: {{ model.data?.api_key?.substring(0, 20) }}...</div>
+              <div style="font-size: 11.5px; color: var(--fg-2); line-height: 1.6">
+                <div style="margin-bottom: 4px">
+                  <span style="color: var(--fg-3)">模型:</span>
+                  <span style="color: var(--fg-1)">{{ model.data?.model }}</span>
+                </div>
+                <div style="margin-bottom: 4px">
+                  <span style="color: var(--fg-3)">端点:</span>
+                  <span style="color: var(--fg-1)">{{ model.data?.base_url || '默认' }}</span>
+                </div>
+                <div style="margin-bottom: 4px">
+                  <span style="color: var(--fg-3)">API Key:</span>
+                  <span style="color: var(--fg-1); font-family: monospace">{{ model.data?.api_key?.substring(0, 20) }}...</span>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 6px">
+                  <span style="color: var(--fg-3)">温度: <span style="color: var(--fg-1)">{{ model.data?.temperature }}</span></span>
+                  <span style="color: var(--fg-3)">最大令牌: <span style="color: var(--fg-1)">{{ model.data?.max_tokens }}</span></span>
+                </div>
               </div>
             </div>
           </div>
@@ -347,48 +458,202 @@ onMounted(async () => {
       </div>
     </div>
 
-    <ElDialog v-model="showAddModel" title="添加 AI 模型" width="500px">
-      <ElForm :model="newModel" label-width="100px">
-        <ElFormItem label="模型名称">
-          <ElInput v-model="newModel.name" placeholder="例如：我的 Claude" />
+    <ElDialog v-model="showAddModel" title="添加 AI 模型" width="600px">
+      <ElForm :model="newModel" label-width="100px" label-position="left">
+        <ElFormItem label="模型名称" required>
+          <ElInput
+            v-model="newModel.name"
+            placeholder="例如：我的 Claude Opus 4.7"
+            clearable
+          />
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            给这个模型配置起一个便于识别的名称
+          </div>
         </ElFormItem>
-        <ElFormItem label="模型类型">
-          <ElSelect v-model="newModel.mode" @change="selectedModelType = newModel.mode">
-            <ElOption label="Claude (Anthropic)" value="claude" />
-            <ElOption label="OpenAI 兼容" value="openai" />
+
+        <ElFormItem label="模型类型" required>
+          <ElSelect
+            v-model="newModel.mode"
+            @change="onModelTypeChange"
+            style="width: 100%"
+          >
+            <ElOption label="Claude (Anthropic)" value="claude">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #CC9B7A"></span>
+                <span>Claude (Anthropic)</span>
+              </div>
+            </ElOption>
+            <ElOption label="OpenAI" value="openai">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10A37F"></span>
+                <span>OpenAI</span>
+              </div>
+            </ElOption>
+            <ElOption label="DeepSeek" value="deepseek">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #1E88E5"></span>
+                <span>DeepSeek</span>
+              </div>
+            </ElOption>
+            <ElOption label="自定义 (OpenAI 兼容)" value="custom">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9C27B0"></span>
+                <span>自定义 (OpenAI 兼容)</span>
+              </div>
+            </ElOption>
           </ElSelect>
         </ElFormItem>
-        <ElFormItem label="API Key">
+
+        <ElFormItem label="API 端点">
+          <ElInput
+            v-model="newModel.base_url"
+            :placeholder="modelPresets[newModel.mode as keyof typeof modelPresets]?.defaultBaseUrl || 'https://api.example.com/v1'"
+            clearable
+          >
+            <template #prepend>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </template>
+          </ElInput>
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            留空使用默认端点。支持自定义代理或中转服务
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="API Key" required>
           <ElInput
             v-model="newModel.api_key"
             type="password"
-            placeholder="sk-ant-... 或 sk-..."
-          />
-        </ElFormItem>
-        <ElFormItem label="模型">
-          <ElSelect v-model="newModel.model">
-            <template v-if="newModel.mode === 'claude'">
-              <ElOption label="Claude 3.5 Sonnet (最新)" value="claude-3-5-sonnet-20241022" />
-              <ElOption label="Claude 3 Opus" value="claude-3-opus-20240229" />
-              <ElOption label="Claude 3 Haiku" value="claude-3-haiku-20240307" />
+            show-password
+            :placeholder="newModel.mode === 'claude' ? 'sk-ant-api03-...' : 'sk-...'"
+            clearable
+          >
+            <template #prepend>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
             </template>
-            <template v-else>
-              <ElOption label="GPT-4o" value="gpt-4o" />
-              <ElOption label="GPT-4o-mini" value="gpt-4o-mini" />
-              <ElOption label="DeepSeek Chat" value="deepseek-chat" />
+          </ElInput>
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            API 密钥将使用 AES-256 加密存储
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="模型" required>
+          <ElSelect
+            v-model="newModel.model"
+            @change="onModelChange"
+            style="width: 100%"
+            :disabled="newModel.mode === 'custom'"
+          >
+            <template v-if="newModel.mode === 'claude'">
+              <ElOption
+                v-for="model in modelPresets.claude.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
+            </template>
+            <template v-else-if="newModel.mode === 'openai'">
+              <ElOption
+                v-for="model in modelPresets.openai.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
+            </template>
+            <template v-else-if="newModel.mode === 'deepseek'">
+              <ElOption
+                v-for="model in modelPresets.deepseek.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
             </template>
           </ElSelect>
+          <ElInput
+            v-if="newModel.mode === 'custom'"
+            v-model="newModel.model"
+            placeholder="输入模型名称，例如：gpt-4o"
+            clearable
+            style="margin-top: 8px"
+          />
+          <div v-if="newModel.mode === 'custom'" style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            自定义模式需要手动输入模型名称
+          </div>
         </ElFormItem>
-        <ElFormItem label="Temperature">
-          <ElSlider v-model="newModel.temperature" :min="0" :max="1" :step="0.1" />
-        </ElFormItem>
-        <ElFormItem label="Max Tokens">
-          <ElInput v-model.number="newModel.max_tokens" type="number" />
-        </ElFormItem>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+          <ElFormItem label="Temperature">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <ElSlider
+                v-model="newModel.temperature"
+                :min="0"
+                :max="2"
+                :step="0.1"
+                style="flex: 1"
+              />
+              <span style="font-size: 12px; color: var(--fg-1); min-width: 30px">{{ newModel.temperature }}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+              0=确定性，2=创造性
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="Max Tokens">
+            <ElInputNumber
+              v-model="newModel.max_tokens"
+              :min="1024"
+              :max="200000"
+              :step="1024"
+              style="width: 100%"
+            />
+            <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+              最大输出长度
+            </div>
+          </ElFormItem>
+        </div>
       </ElForm>
+
       <template #footer>
-        <ElButton @click="showAddModel = false">取消</ElButton>
-        <ElButton type="primary" @click="saveNewModel">保存</ElButton>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <div style="font-size: 11px; color: var(--fg-3)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            配置保存后立即生效
+          </div>
+          <div style="display: flex; gap: 8px">
+            <ElButton @click="showAddModel = false">取消</ElButton>
+            <ElButton type="primary" @click="saveNewModel">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              保存模型
+            </ElButton>
+          </div>
+        </div>
       </template>
     </ElDialog>
 

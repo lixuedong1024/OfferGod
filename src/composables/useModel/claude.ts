@@ -19,7 +19,7 @@ const info: llmInfo<claudeLLMConf> = {
   mode: {
     mode: 'claude',
     label: 'Claude (Anthropic)',
-    desc: `支持 Claude 系列模型，包括 Claude 3.5 Sonnet、Claude 3 Opus 等。<br/>
+    desc: `支持 Claude 4.x 和 3.x 系列模型，包括 Opus 4.7、Sonnet 4.6、Haiku 4.5 等。<br/>
     官方 API: https://api.anthropic.com<br/>
     支持自定义 base_url 用于代理服务`,
     icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#CC9B7A"/><path d="M8 6L12 18M12 18L16 6M12 18H6M12 18H18" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -38,11 +38,14 @@ const info: llmInfo<claudeLLMConf> = {
     type: 'select',
     required: true,
     label: '模型',
-    value: 'claude-3-5-sonnet-20241022',
+    value: 'claude-opus-4-7',
     config: {
       placeholder: '选择 Claude 模型',
       options: [
-        { label: 'Claude 3.5 Sonnet (最新)', value: 'claude-3-5-sonnet-20241022' },
+        { label: 'Claude Opus 4.7 (最强推理)', value: 'claude-opus-4-7' },
+        { label: 'Claude Sonnet 4.6 (平衡)', value: 'claude-sonnet-4-6' },
+        { label: 'Claude Haiku 4.5 (快速)', value: 'claude-haiku-4-5' },
+        { label: 'Claude 3.5 Sonnet (旧版)', value: 'claude-3-5-sonnet-20241022' },
         { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20240620' },
         { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
         { label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229' },
@@ -63,13 +66,13 @@ const info: llmInfo<claudeLLMConf> = {
   max_tokens: {
     type: 'inputNumber',
     label: '最大 Token 数',
-    value: 4096,
+    value: 8192,
     config: {
-      min: 1,
-      max: 8192,
-      step: 256,
+      min: 1024,
+      max: 200000,
+      step: 1024,
     },
-    desc: 'Claude 响应的最大 token 数量',
+    desc: 'Claude 4.x 系列支持最高 200K tokens',
   },
   temperature: {
     type: 'slider',
