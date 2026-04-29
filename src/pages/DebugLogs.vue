@@ -11,28 +11,28 @@
 
     <div class="filters">
       <el-radio-group v-model="filterLevel" size="small">
-        <el-radio-button label="all">全部 ({{ logs.length }})</el-radio-button>
-        <el-radio-button label="info">信息 ({{ countByLevel('info') }})</el-radio-button>
-        <el-radio-button label="warn">警告 ({{ countByLevel('warn') }})</el-radio-button>
-        <el-radio-button label="error">错误 ({{ countByLevel('error') }})</el-radio-button>
-        <el-radio-button label="debug">调试 ({{ countByLevel('debug') }})</el-radio-button>
+        <el-radio-button value="all">全部 ({{ logs.length }})</el-radio-button>
+        <el-radio-button value="info">信息 ({{ countByLevel('info') }})</el-radio-button>
+        <el-radio-button value="warn">警告 ({{ countByLevel('warn') }})</el-radio-button>
+        <el-radio-button value="error">错误 ({{ countByLevel('error') }})</el-radio-button>
+        <el-radio-button value="debug">调试 ({{ countByLevel('debug') }})</el-radio-button>
       </el-radio-group>
     </div>
 
     <div class="log-list" v-bind="containerProps">
       <div v-bind="wrapperProps">
         <div
-          v-for="{ data: log, index } in virtualLogs"
-          :key="log.timestamp"
-          :class="['log-item', `level-${log.level}`]"
+          v-for="item in virtualLogs"
+          :key="item.data.timestamp"
+          :class="['log-item', `level-${item.data.level}`]"
         >
           <div class="log-header">
-            <span :class="['level-badge', `level-${log.level}`]">{{ log.level.toUpperCase() }}</span>
-            <span class="timestamp">{{ formatTime(log.timestamp) }}</span>
+            <span :class="['level-badge', `level-${item.data.level}`]">{{ item.data.level.toUpperCase() }}</span>
+            <span class="timestamp">{{ formatTime(item.data.timestamp) }}</span>
           </div>
-          <div class="log-message">{{ log.message }}</div>
-          <div v-if="log.data" class="log-data">
-            <pre>{{ JSON.stringify(log.data, null, 2) }}</pre>
+          <div class="log-message">{{ item.data.message }}</div>
+          <div v-if="item.data.data" class="log-data">
+            <pre>{{ JSON.stringify(item.data.data, null, 2) }}</pre>
           </div>
         </div>
       </div>
