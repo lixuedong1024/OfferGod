@@ -3,6 +3,10 @@ import { ref, computed, onMounted } from 'vue';
 import { useVirtualList } from '@vueuse/core';
 import { useBatchOperation } from '@/composables/useBatchOperation';
 import type { JobData } from '../utils/jobScraper';
+import type { JobData as JobDataType, MatchResult } from '@/types/job';
+import { parseJobDescription } from '@/utils/jdParser';
+import { matchJobWithResume, loadResumeData } from '@/utils/jobMatcher';
+import { Logger } from '@/utils/logger';
 import JobDetail from './JobDetail.vue';
 
 interface Job {
@@ -62,16 +66,67 @@ const loadJobs = async () => {
     const data = await chrome.storage.local.get(['jobs', 'lastUpdate']);
 
     if (data.jobs && Array.isArray(data.jobs)) {
-      jobs.value = data.jobs.map((job: JobData) => ({
-        id: job.encryptJobId,
-        title: job.jobName,
-        company: job.brandName,
-        salary: job.salaryDesc,
-        location: job.cityName,
-        experience: job.experienceName,
-        score: Math.floor(Math.random() * 20) + 80, // 临时评分
-        status: 'ready' as const,
-      }));
+      // 加载简历数据
+      const resume = await loadResumeData();
+
+      // 处理每个岗位
+      const jobPromises = data.jobs.map(async (job: JobData) => {
+        let score = 75; // 默认分数
+
+        // 如果有简历数据，计算真实匹配度
+        if (resume && job.postDescription) {
+          try {
+            // 检查是否已有缓存的匹配结果
+            const jobData = job as JobDataType;
+            if (jobData.matchResult && jobData.matchResult.calculatedAt > Date.now() - 24 * 60 * 60 * 1000) {
+              // 使用缓存的结果（24小时内有效）
+              score = jobData.matchResult.totalScore;
+            } else {
+              // 解析JD
+              const requirement = await parseJobDescription(
+                job.encryptJobId,
+                job.jobName,
+                job.postDescription,
+                job.experienceName,
+                job.degreeName,
+                job.jobLabels
+              );
+
+              // 计算匹配度
+              const matchResult = await matchJobWithResume(
+                job.encryptJobId,
+                job.jobName,
+                requirement,
+                resume
+              );
+
+              score = matchResult.totalScore;
+
+              // 缓存结果到 storage
+              jobData.matchResult = matchResult;
+              jobData.requirement = requirement;
+            }
+          } catch (error) {
+            Logger.warn('计算匹配度失败，使用默认分数', { jobId: job.encryptJobId, error: String(error) });
+          }
+        }
+
+        return {
+          id: job.encryptJobId,
+          title: job.jobName,
+          company: job.brandName,
+          salary: job.salaryDesc,
+          location: job.cityName,
+          experience: job.experienceName,
+          score,
+          status: (job.status || 'ready') as const,
+        };
+      });
+
+      jobs.value = await Promise.all(jobPromises);
+
+      // 保存更新后的岗位数据（包含匹配结果缓存）
+      await chrome.storage.local.set({ jobs: data.jobs });
 
       console.log('✅ 加载岗位数据成功:', {
         数量: jobs.value.length,

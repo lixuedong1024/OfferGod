@@ -2,9 +2,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { useModel } from '@/composables/useModel';
 import { useChatStore } from '@/stores/chat';
+import { useResumeStore } from '@/stores/resume';
 import { useWebSocket } from '@/composables/useWebSocket';
 import { Logger } from '@/utils/logger';
 import { ElMessage } from 'element-plus';
+import type { JobData as JobDataType } from '@/types/job';
+import { parseJobDescription } from '@/utils/jdParser';
+import { matchJobWithResume, loadResumeData } from '@/utils/jobMatcher';
 
 interface Props {
   jobId: string;
@@ -14,6 +18,7 @@ interface Props {
 const props = defineProps<Props>();
 const modelStore = useModel();
 const chatStore = useChatStore();
+const resumeStore = useResumeStore();
 const wsClient = useWebSocket();
 
 interface JobDetail {
@@ -151,6 +156,71 @@ const loadJobDetail = async () => {
     const jobData = jobs.find((j: any) => j.encryptJobId === props.jobId);
 
     if (jobData) {
+      // 默认值
+      let score = 75;
+      let matched: string[] = [];
+      let missing: string[] = [];
+      let aiSuggestion = '正在分析匹配度...';
+
+      // 计算真实匹配度
+      const resume = await loadResumeData();
+      if (resume && jobData.postDescription) {
+        try {
+          const jobDataTyped = jobData as JobDataType;
+
+          // 检查是否有缓存的匹配结果
+          if (jobDataTyped.matchResult && jobDataTyped.matchResult.calculatedAt > Date.now() - 24 * 60 * 60 * 1000) {
+            // 使用缓存（24小时内有效）
+            const matchResult = jobDataTyped.matchResult;
+            score = matchResult.totalScore;
+            matched = matchResult.matchedItems;
+            missing = matchResult.missingItems;
+            aiSuggestion = matchResult.aiSuggestion;
+          } else {
+            // 重新计算
+            const requirement = await parseJobDescription(
+              jobData.encryptJobId,
+              jobData.jobName,
+              jobData.postDescription,
+              jobData.experienceName,
+              jobData.degreeName || '不限',
+              jobData.jobLabels || []
+            );
+
+            const matchResult = await matchJobWithResume(
+              jobData.encryptJobId,
+              jobData.jobName,
+              requirement,
+              resume
+            );
+
+            score = matchResult.totalScore;
+            matched = matchResult.matchedItems;
+            missing = matchResult.missingItems;
+            aiSuggestion = matchResult.aiSuggestion;
+
+            // 缓存结果
+            jobDataTyped.matchResult = matchResult;
+            jobDataTyped.requirement = requirement;
+
+            // 保存到 storage
+            const updatedJobs = jobs.map((j: any) =>
+              j.encryptJobId === props.jobId ? jobDataTyped : j
+            );
+            await chrome.storage.local.set({ jobs: updatedJobs });
+          }
+        } catch (error) {
+          Logger.warn('计算匹配度失败，使用默认值', { error: String(error) });
+          matched = ['工作经验符合要求'];
+          missing = ['建议补充相关项目经验'];
+          aiSuggestion = '匹配度分析失败，建议查看岗位详情后决定是否投递。';
+        }
+      } else if (!resume) {
+        matched = ['请先完善简历信息'];
+        missing = ['需要填写工作经验、技能等信息'];
+        aiSuggestion = '请先在设置中完善简历信息，以便进行精准匹配分析。';
+      }
+
       job.value = {
         id: jobData.encryptJobId,
         title: jobData.jobName,
@@ -168,28 +238,21 @@ const loadJobDetail = async () => {
           name: jobData.bossName || 'HR',
           title: jobData.bossTitle || '招聘者',
           avatar: jobData.bossAvatar || '',
-          active: '本周活跃',
-          responseRate: '72%',
-          avgResponseTime: '1小时12分',
-          totalChats: 340,
-          recentPosts: 4,
+          active: jobData.activeTimeDesc || '本周活跃',
+          responseRate: '预估 70%+',
+          avgResponseTime: '预估 1-2小时',
+          totalChats: 0,
+          recentPosts: 0,
         },
         companyInfo: {
           industry: jobData.brandIndustry || '互联网',
           size: jobData.brandScaleName || '100-500人',
           tag: jobData.financingDesc || '未融资',
         },
-        score: Math.floor(Math.random() * 20) + 80,
-        matched: [
-          '5年以上相关工作经验',
-          '熟悉Linux系统运维',
-          '有机器人项目经验',
-        ],
-        missing: [
-          '建议补充具体的ROS项目案例',
-          '可以强调现场支持能力',
-        ],
-        aiSuggestion: '建议投递。岗位核心要求与你的经历高度匹配，特别是机器人运维和Linux自动化能力。',
+        score,
+        matched,
+        missing,
+        aiSuggestion,
       };
 
       generateGreeting();
@@ -206,10 +269,38 @@ const generateGreeting = () => {
   if (!job.value) return;
 
   const hrName = job.value.hr.name.split(' ')[0];
+  const resume = resumeStore.resume;
+
+  // 获取匹配的技能和经验
+  const matchedSkills = job.value.matched
+    .filter(m => m.includes('技能') || m.includes('熟悉') || m.includes('掌握'))
+    .slice(0, 2);
+
+  const matchedExp = job.value.matched
+    .filter(m => m.includes('经验') || m.includes('年'))
+    .slice(0, 1);
+
+  // 获取简历中的关键信息
+  const yearsOfExp = resume?.experience?.[0]?.duration || '多年';
+  const topSkills = resume?.skills?.slice(0, 3).map(s => s.name).join('、') || job.value.skills.slice(0, 2).join('、');
+  const recentProject = resume?.experience?.[0]?.projects?.[0]?.name || '';
+
+  // 根据匹配度调整语气
+  const matchScore = job.value.score;
+  const isHighMatch = matchScore >= 85;
+
   const templates = {
-    professional: `你好 ${hrName}，看到贵司在招聘${job.value.title}，我有5年相关经验，特别是在${job.value.skills[0] || '相关技术'}方面有完整项目落地经验。看到岗位提到的【${job.value.tags[0] || '技术要求'}】我能够胜任，方便聊一下吗？`,
-    friendly: `${hrName} 你好！看到这个${job.value.title}的岗位很感兴趣～我目前有5年相关经验，${job.value.skills[0] || '相关技术'}用得比较顺手，想了解下贵司这边的具体业务场景，有空聊聊吗？`,
-    concise: `你好。${job.value.title}岗位匹配度高：5年相关经验 + ${job.value.skills.slice(0, 2).join('/')}项目经验。期待沟通。`,
+    professional: isHighMatch
+      ? `你好 ${hrName}，看到贵司在招聘${job.value.title}，我有${yearsOfExp}相关经验，${matchedSkills[0] || `在${topSkills}方面有完整项目落地经验`}。${matchedExp[0] || '工作经历与岗位要求高度匹配'}，方便聊一下吗？`
+      : `你好 ${hrName}，看到贵司在招聘${job.value.title}，我有${yearsOfExp}相关经验，特别是在${topSkills}方面有实践经验${recentProject ? `，曾负责${recentProject}` : ''}。对这个岗位很感兴趣，方便了解一下吗？`,
+
+    friendly: isHighMatch
+      ? `${hrName} 你好！看到这个${job.value.title}的岗位很感兴趣～我有${yearsOfExp}相关经验，${matchedSkills[0] || `${topSkills}用得比较顺手`}。匹配度${matchScore}分，想了解下贵司这边的具体业务场景，有空聊聊吗？`
+      : `${hrName} 你好！看到这个${job.value.title}的岗位很感兴趣～我目前有${yearsOfExp}相关经验，${topSkills}都有接触${recentProject ? `，最近在做${recentProject}` : ''}。想了解下贵司这边的具体情况，有空聊聊吗？`,
+
+    concise: isHighMatch
+      ? `你好。${job.value.title}岗位匹配度${matchScore}分：${matchedSkills[0] || `${yearsOfExp}经验`} + ${matchedSkills[1] || `${topSkills}技能栈`}。期待沟通。`
+      : `你好。${job.value.title}岗位：${yearsOfExp}相关经验，${topSkills}技能栈${recentProject ? `，${recentProject}项目经验` : ''}。期待沟通。`,
   };
 
   greeting.value = templates[tone.value];
@@ -222,20 +313,44 @@ const regenerateGreeting = async () => {
   try {
     // 使用AI模型生成
     if (modelStore.currentModel.value) {
+      const resume = resumeStore.resume;
+      const matchInfo = job.value ? {
+        score: job.value.score,
+        matched: job.value.matched.slice(0, 3).join('；'),
+        missing: job.value.missing.slice(0, 2).join('；'),
+      } : null;
+
       const prompt = `请为以下岗位生成一条${tone.value === 'professional' ? '正式' : tone.value === 'friendly' ? '友好' : '简洁'}的打招呼语：
-岗位：${job.value?.title}
-公司：${job.value?.company}
-HR：${job.value?.hr.name}
-技能要求：${job.value?.skills.join('、')}
+
+岗位信息：
+- 岗位：${job.value?.title}
+- 公司：${job.value?.company}
+- HR：${job.value?.hr.name}
+- 技能要求：${job.value?.skills.join('、')}
+- 经验要求：${job.value?.experience}
+
+我的简历：
+- 工作经验：${resume?.experience || '多年相关经验'}
+- 核心技能：${resume?.skills?.slice(0, 5).map((s: any) => s.name || s).join('、') || '相关技能'}
+- 最近项目：${resume?.experience?.[0]?.projects?.[0]?.name || '相关项目经验'}
+
+匹配分析：
+- 匹配度：${matchInfo?.score || 75}分
+- 匹配项：${matchInfo?.matched || '工作经验符合要求'}
+- 待补充：${matchInfo?.missing || '无'}
 
 要求：
-1. 字数控制在100字以内
-2. 突出匹配度
-3. 语气${tone.value === 'professional' ? '专业正式' : tone.value === 'friendly' ? '友好亲切' : '简洁直接'}
-4. 不要使用过于夸张的词汇`;
+1. 字数控制在80-120字
+2. 突出我的匹配优势（基于上述匹配项）
+3. 语气${tone.value === 'professional' ? '专业正式，体现专业性' : tone.value === 'friendly' ? '友好亲切，但不失专业' : '简洁直接，突出关键信息'}
+4. 不要使用过于夸张的词汇（如"最好"、"第一"、"保证"等）
+5. 自然提及1-2个匹配的技能或经验
+6. 以询问或期待沟通结尾
+
+只返回打招呼语内容，不要其他说明。`;
 
       const result = await modelStore.chat(prompt);
-      greeting.value = result;
+      greeting.value = result.trim();
     } else {
       generateGreeting();
     }
