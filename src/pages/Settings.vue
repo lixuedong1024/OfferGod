@@ -142,6 +142,8 @@ async function testModelConnection() {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
+    console.log('[Settings] 准备测试连接:', { modelsUrl, mode, headers: Object.keys(headers) });
+
     // 通过 background script 发起请求（避免浏览器扩展的网络限制）
     const response = await chrome.runtime.sendMessage({
       type: 'TEST_API_CONNECTION',
@@ -151,6 +153,8 @@ async function testModelConnection() {
         timeout: 8000,
       }
     });
+
+    console.log('[Settings] 收到 background 响应:', response);
 
     if (response.success) {
       const modelCount = response.modelCount || 0;

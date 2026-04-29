@@ -23,6 +23,8 @@ export default defineBackground(() => {
         try {
           const { modelsUrl, headers, timeout = 8000 } = request.payload;
 
+          console.log('[Background] 测试 API 连接:', { modelsUrl, headers, timeout });
+
           // 热身请求
           try {
             await fetch(modelsUrl, {
@@ -31,6 +33,7 @@ export default defineBackground(() => {
               signal: AbortSignal.timeout(timeout),
             });
           } catch (e) {
+            console.log('[Background] 热身请求失败（忽略）:', e);
             // 忽略热身请求的错误
           }
 
@@ -43,10 +46,13 @@ export default defineBackground(() => {
           });
           const latency = Math.round(performance.now() - start);
 
+          console.log('[Background] 收到响应:', { status: response.status, latency });
+
           if (response.ok) {
             try {
               const data = await response.json();
               const modelCount = data.data?.length || 0;
+              console.log('[Background] 解析成功:', { modelCount });
               sendResponse({
                 success: true,
                 latency,
@@ -54,6 +60,7 @@ export default defineBackground(() => {
                 status: response.status,
               });
             } catch (e) {
+              console.log('[Background] JSON 解析失败:', e);
               sendResponse({
                 success: true,
                 latency,
@@ -62,6 +69,7 @@ export default defineBackground(() => {
             }
           } else {
             const errorText = await response.text().catch(() => '');
+            console.error('[Background] HTTP 错误:', { status: response.status, errorText });
             sendResponse({
               success: false,
               status: response.status,
@@ -69,10 +77,16 @@ export default defineBackground(() => {
             });
           }
         } catch (error: any) {
+          console.error('[Background] 请求异常:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          });
           sendResponse({
             success: false,
             error: error.message,
-            isTimeout: error.name === 'TimeoutError' || error.message.includes('timeout'),
+            errorName: error.name,
+            isTimeout: error.name === 'TimeoutError' || error.name === 'AbortError' || error.message.includes('timeout'),
             isNetworkError: error.message.includes('Failed to fetch'),
           });
         }
