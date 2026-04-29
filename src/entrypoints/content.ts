@@ -292,6 +292,16 @@ export default defineContentScript({
         app.mount(container);
 
         sendResponse({ success: true });
+      } else if (request.action === 'toggleTheme') {
+        // 处理主题切换
+        if (app) {
+          // 如果应用已经打开，通知应用切换主题
+          const event = new CustomEvent('offergod-theme-change', {
+            detail: { theme: request.theme }
+          });
+          window.dispatchEvent(event);
+        }
+        sendResponse({ success: true });
       } else if (request.action === 'scrapeJobs') {
         // 手动触发抓取
         window.postMessage({ type: 'OFFERGOD_GET_JOBS' }, '*');

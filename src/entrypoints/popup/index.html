@@ -13,121 +13,256 @@
     }
 
     body {
-      width: 400px;
-      min-height: 500px;
+      width: 320px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #1a1a1a;
-      color: #fff;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* 深色主题 */
+    body[data-theme="dark"] {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+    }
+
+    body[data-theme="dark"] .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    body[data-theme="dark"] .stat-label {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    body[data-theme="dark"] .brand-sub {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    body[data-theme="dark"] .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    body[data-theme="dark"] .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    body[data-theme="dark"] .tip {
+      color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* 浅色主题 */
+    body[data-theme="light"] {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #1e293b;
+    }
+
+    body[data-theme="light"] .stat-card {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    body[data-theme="light"] .stat-label {
+      color: rgba(0, 0, 0, 0.5);
+    }
+
+    body[data-theme="light"] .brand-sub {
+      color: rgba(0, 0, 0, 0.4);
+    }
+
+    body[data-theme="light"] .btn-secondary {
+      background: rgba(0, 0, 0, 0.05);
+      color: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    body[data-theme="light"] .btn-secondary:hover {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    body[data-theme="light"] .tip {
+      color: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    .container {
+      padding: 16px;
     }
 
     .header {
-      padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
     }
 
-    .logo {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 5px;
-    }
-
-    .subtitle {
-      font-size: 12px;
-      opacity: 0.9;
-    }
-
-    .content {
-      padding: 20px;
-    }
-
-    .status {
-      background: #2a2a2a;
+    .brand-icon {
+      width: 36px;
+      height: 36px;
       border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-    }
-
-    .status-title {
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 8px;
-    }
-
-    .status-value {
+      background: linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .brand-text {
+      flex: 1;
+    }
+
+    .brand-name {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      border-radius: 8px;
+      padding: 12px;
+      transition: all 0.3s;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #14b8a6;
+    }
+
+    .stat-value.running {
+      font-size: 13px;
       font-weight: 600;
-      color: #4ade80;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #14b8a6;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+      }
+      50% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 4px rgba(20, 184, 166, 0);
+      }
     }
 
     .btn {
       width: 100%;
-      padding: 12px;
+      height: 44px;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      margin-bottom: 10px;
       transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%);
       color: white;
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
     }
 
     .btn-secondary {
-      background: #2a2a2a;
-      color: #fff;
+      transition: all 0.2s;
     }
 
-    .btn-secondary:hover {
-      background: #333;
+    .btn svg {
+      width: 16px;
+      height: 16px;
     }
 
     .tip {
-      font-size: 11px;
-      color: #666;
+      font-size: 10px;
       text-align: center;
-      margin-top: 15px;
       line-height: 1.5;
+      padding: 8px;
+      border-radius: 6px;
+      transition: all 0.3s;
     }
   </style>
 </head>
-<body>
-  <div class="header">
-    <div class="logo">🎯 OfferGod</div>
-    <div class="subtitle">Offer之神 · AI加持</div>
-  </div>
-
-  <div class="content">
-    <div class="status">
-      <div class="status-title">今日投递</div>
-      <div class="status-value" id="todayCount">0</div>
+<body data-theme="dark">
+  <div class="container">
+    <div class="header">
+      <div class="brand-icon">🎯</div>
+      <div class="brand-text">
+        <div class="brand-name">OfferGod</div>
+        <div class="brand-sub">v1.0 · 神之加持</div>
+      </div>
     </div>
 
-    <div class="status">
-      <div class="status-title">引擎状态</div>
-      <div class="status-value" id="engineStatus">已暂停</div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">今日投递</div>
+        <div class="stat-value" id="todayCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">引擎状态</div>
+        <div class="stat-value running" id="engineStatus">
+          <span class="pulse-dot"></span>
+          已暂停
+        </div>
+      </div>
     </div>
 
     <button class="btn btn-primary" id="openDashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
       打开工作台
     </button>
 
-    <button class="btn btn-secondary" id="openSettings">
-      设置
+    <button class="btn btn-secondary" id="toggleTheme">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+      <span id="themeText">切换到浅色</span>
     </button>
 
     <div class="tip">
-      💡 请在 Boss 直聘页面使用<br>
-      点击"打开工作台"查看完整功能
+      💡 请在 Boss 直聘页面使用
     </div>
   </div>
 </body>

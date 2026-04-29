@@ -21,7 +21,7 @@ import Calendar from './pages/Calendar.vue';
 import TemplateManager from './pages/TemplateManager.vue';
 
 const modelStore = useModel();
-const { currentTheme, toggleTheme, loadTheme } = useTheme();
+const { currentTheme, toggleTheme, setTheme, loadTheme } = useTheme();
 const chatStore = useChatStore();
 const userStore = useUserStore();
 const { show } = useErrorNotification();
@@ -126,10 +126,16 @@ function getInboxBadge() {
 }
 
 onMounted(async () => {
-  loadTheme();
+  await loadTheme();
   await modelStore.initModel();
   await chatStore.loadSessions();
   await userStore.loadUserInfo();
+
+  // 监听来自popup的主题切换事件
+  window.addEventListener('offergod-theme-change', (event: any) => {
+    const theme = event.detail.theme;
+    setTheme(theme);
+  });
 
   // 全局未捕获错误
   window.addEventListener('error', (event) => {

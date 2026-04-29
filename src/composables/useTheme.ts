@@ -5,32 +5,43 @@ export type Theme = 'dark' | 'light';
 const currentTheme = ref<Theme>('dark');
 
 export function useTheme() {
-  const toggleTheme = () => {
-    currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark';
-    applyTheme(currentTheme.value);
-    saveTheme(currentTheme.value);
+  const toggleTheme = async () => {
+    const newTheme = currentTheme.value === 'dark' ? 'light' : 'dark';
+    currentTheme.value = newTheme;
+    applyTheme(newTheme);
+    await saveTheme(newTheme);
   };
 
-  const setTheme = (theme: Theme) => {
+  const setTheme = async (theme: Theme) => {
     currentTheme.value = theme;
     applyTheme(theme);
-    saveTheme(theme);
+    await saveTheme(theme);
   };
 
   const applyTheme = (theme: Theme) => {
     document.documentElement.setAttribute('data-theme', theme);
   };
 
-  const saveTheme = (theme: Theme) => {
-    localStorage.setItem('offergod-theme', theme);
+  const saveTheme = async (theme: Theme) => {
+    try {
+      await chrome.storage.local.set({ theme });
+    } catch (error) {
+      console.error('保存主题失败:', error);
+    }
   };
 
-  const loadTheme = () => {
-    const saved = localStorage.getItem('offergod-theme') as Theme;
-    if (saved) {
-      currentTheme.value = saved;
-      applyTheme(saved);
-    } else {
+  const loadTheme = async () => {
+    try {
+      const data = await chrome.storage.local.get(['theme']);
+      const saved = data.theme as Theme;
+      if (saved) {
+        currentTheme.value = saved;
+        applyTheme(saved);
+      } else {
+        applyTheme('dark');
+      }
+    } catch (error) {
+      console.error('加载主题失败:', error);
       applyTheme('dark');
     }
   };
