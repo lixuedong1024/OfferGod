@@ -75,7 +75,8 @@ export default defineContentScript({
 
           // 添加活动日志
           const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-          const existingActivities = (await chrome.storage.local.get('activities')).activities || [];
+          const storageData = await chrome.storage.local.get('activities');
+          const existingActivities = Array.isArray(storageData.activities) ? storageData.activities : [];
           const activities = [
             { time: now, kind: 'ok', msg: `成功抓取 ${jobs.length} 个岗位，累计 ${mergedJobs.length} 个` },
             ...existingActivities.slice(0, 9) // 保留最近10条
