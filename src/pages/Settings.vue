@@ -111,17 +111,36 @@ async function testModelConnection() {
 
   try {
     const baseUrl = newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl;
+    const apiKey = newModel.value.api_key;
+    const mode = newModel.value.mode;
 
-    // 简单的端点连通性测试（类似 cc-switch 的方式）
-    // 只测试能否连接到 API 端点，不发送完整的 API 请求
-    const testUrl = new URL(baseUrl);
-
-    // 第一次请求：热身，建立连接
-    const warmupStart = performance.now();
+    // 构建 /v1/models 端点 URL（参考 cc-switch 的实现）
+    let modelsUrl: string;
     try {
-      await fetch(testUrl.origin, {
-        method: 'HEAD',
-        mode: 'no-cors', // 避免 CORS 问题
+      const url = new URL(baseUrl);
+      // 确保路径以 /v1/models 结尾
+      if (url.pathname.endsWith('/')) {
+        modelsUrl = `${baseUrl}v1/models`;
+      } else if (url.pathname.includes('/v1')) {
+        // 如果已经包含 /v1，替换为 /v1/models
+        modelsUrl = baseUrl.replace(/\/v1.*$/, '/v1/models');
+      } else {
+        modelsUrl = `${baseUrl}/v1/models`;
+      }
+    } catch (e) {
+      throw new Error('无效的 API 端点地址');
+    }
+
+    // 第一次请求：热身，建立连接（忽略结果）
+    try {
+      await fetch(modelsUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': mode === 'openai' ? `Bearer ${apiKey}` : `Bearer ${apiKey}`,
+          'anthropic-version': mode === 'claude' ? '2023-06-01' : undefined,
+          'x-api-key': mode === 'claude' ? apiKey : undefined,
+        } as Record<string, string>,
+        signal: AbortSignal.timeout(8000),
       });
     } catch (e) {
       // 忽略热身请求的错误
@@ -129,30 +148,72 @@ async function testModelConnection() {
 
     // 第二次请求：实际测试并计时
     const start = performance.now();
-    const response = await fetch(testUrl.origin, {
-      method: 'HEAD',
-      mode: 'no-cors',
-      cache: 'no-cache',
+    const response = await fetch(modelsUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': mode === 'openai' ? `Bearer ${apiKey}` : `Bearer ${apiKey}`,
+        'anthropic-version': mode === 'claude' ? '2023-06-01' : undefined,
+        'x-api-key': mode === 'claude' ? apiKey : undefined,
+      } as Record<string, string>,
+      signal: AbortSignal.timeout(8000),
     });
 
     const latency = Math.round(performance.now() - start);
 
-    // no-cors 模式下 response.ok 总是 false，但能到这里说明连接成功
-    testResult.value = {
-      success: true,
-      message: `端点可达！延迟: ${latency}ms`
-    };
-    ElMessage.success(`连接测试成功 (${latency}ms)`);
+    // 检查响应状态
+    if (response.ok) {
+      // 尝试解析响应
+      try {
+        const data = await response.json();
+        const modelCount = data.data?.length || 0;
+
+        testResult.value = {
+          success: true,
+          message: `连接成功！延迟: ${latency}ms${modelCount > 0 ? `，可用模型: ${modelCount} 个` : ''}`
+        };
+        ElMessage.success(`连接测试成功 (${latency}ms)`);
+      } catch (e) {
+        // 即使解析失败，只要状态码正确就算成功
+        testResult.value = {
+          success: true,
+          message: `连接成功！延迟: ${latency}ms`
+        };
+        ElMessage.success(`连接测试成功 (${latency}ms)`);
+      }
+    } else {
+      // 处理各种错误状态码
+      let errorMessage = '连接失败';
+
+      if (response.status === 401 || response.status === 403) {
+        errorMessage = 'API Key 无效或无权限';
+      } else if (response.status === 404) {
+        errorMessage = '端点不存在，请检查 API 地址';
+      } else if (response.status === 429) {
+        errorMessage = '请求频率限制，请稍后再试';
+      } else if (response.status >= 500) {
+        errorMessage = 'API 服务器错误';
+      } else {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+
+      testResult.value = {
+        success: false,
+        message: errorMessage
+      };
+      ElMessage.error('连接测试失败：' + errorMessage);
+    }
 
   } catch (error: any) {
     console.error('测试连接失败:', error);
 
     let errorMessage = '连接失败';
 
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      errorMessage = '无法连接到 API 端点，请检查网络或端点地址';
-    } else if (error.message.includes('timeout')) {
-      errorMessage = '连接超时，请检查网络或更换端点';
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      errorMessage = '连接超时（8秒），请检查网络或更换端点';
+    } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = '无法连接到 API 端点，请检查网络、代理或端点地址';
+    } else if (error.message.includes('CORS')) {
+      errorMessage = 'CORS 跨域错误，请检查 API 端点配置';
     } else {
       errorMessage = `错误：${error.message}`;
     }
