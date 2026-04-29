@@ -132,13 +132,14 @@ async function testModelConnection() {
     }
 
     // 构建请求头
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${apiKey}`,
-    };
+    const headers: Record<string, string> = {};
 
     if (mode === 'claude') {
       headers['anthropic-version'] = '2023-06-01';
       headers['x-api-key'] = apiKey;
+    } else {
+      // OpenAI 和其他兼容 API 使用 Bearer token
+      headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
     // 通过 background script 发起请求（避免浏览器扩展的网络限制）
