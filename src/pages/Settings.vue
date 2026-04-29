@@ -131,69 +131,69 @@ async function testModelConnection() {
       throw new Error('无效的 API 端点地址');
     }
 
-    // 第一次请求：热身，建立连接（忽略结果）
-    try {
-      await fetch(modelsUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': mode === 'openai' ? `Bearer ${apiKey}` : `Bearer ${apiKey}`,
-          'anthropic-version': mode === 'claude' ? '2023-06-01' : undefined,
-          'x-api-key': mode === 'claude' ? apiKey : undefined,
-        } as Record<string, string>,
-        signal: AbortSignal.timeout(8000),
-      });
-    } catch (e) {
-      // 忽略热身请求的错误
+    // 构建请求头
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${apiKey}`,
+    };
+
+    if (mode === 'claude') {
+      headers['anthropic-version'] = '2023-06-01';
+      headers['x-api-key'] = apiKey;
     }
 
-    // 第二次请求：实际测试并计时
-    const start = performance.now();
-    const response = await fetch(modelsUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': mode === 'openai' ? `Bearer ${apiKey}` : `Bearer ${apiKey}`,
-        'anthropic-version': mode === 'claude' ? '2023-06-01' : undefined,
-        'x-api-key': mode === 'claude' ? apiKey : undefined,
-      } as Record<string, string>,
-      signal: AbortSignal.timeout(8000),
+    // 通过 background script 发起请求（避免浏览器扩展的网络限制）
+    const response = await chrome.runtime.sendMessage({
+      type: 'TEST_API_CONNECTION',
+      payload: {
+        modelsUrl,
+        headers,
+        timeout: 8000,
+      }
     });
 
-    const latency = Math.round(performance.now() - start);
-
-    // 检查响应状态
-    if (response.ok) {
-      // 尝试解析响应
-      try {
-        const data = await response.json();
-        const modelCount = data.data?.length || 0;
-
-        testResult.value = {
-          success: true,
-          message: `连接成功！延迟: ${latency}ms${modelCount > 0 ? `，可用模型: ${modelCount} 个` : ''}`
-        };
-        ElMessage.success(`连接测试成功 (${latency}ms)`);
-      } catch (e) {
-        // 即使解析失败，只要状态码正确就算成功
-        testResult.value = {
-          success: true,
-          message: `连接成功！延迟: ${latency}ms`
-        };
-        ElMessage.success(`连接测试成功 (${latency}ms)`);
-      }
-    } else {
-      // 处理各种错误状态码
-      let errorMessage = '连接失败';
+    if (response.success) {
+      const modelCount = response.modelCount || 0;
+      testResult.value = {
+        success: true,
+        message: `连接成功！延迟: ${response.latency}ms${modelCount > 0 ? `，可用模型: ${modelCount} 个` : ''}`
+      };
+      ElMessage.success(`连接测试成功 (${response.latency}ms)`);
+    } else if (response.status) {
+      // HTTP 错误响应
+      let errorMessage = `HTTP ${response.status}`;
 
       if (response.status === 401 || response.status === 403) {
         errorMessage = 'API Key 无效或无权限';
       } else if (response.status === 404) {
-        errorMessage = '端点不存在，请检查 API 地址';
+        errorMessage = '端点不存在，请检查 Base URL';
       } else if (response.status === 429) {
         errorMessage = '请求频率限制，请稍后再试';
       } else if (response.status >= 500) {
-        errorMessage = 'API 服务器错误';
-      } else {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        errorMessage = '服务器错误，请稍后再试';
+      } else if (response.errorText) {
+        try {
+          const errorJson = JSON.parse(response.errorText);
+          errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+        } catch (e) {
+          errorMessage += `: ${response.errorText.substring(0, 100)}`;
+        }
+      }
+
+      testResult.value = {
+        success: false,
+        message: errorMessage
+      };
+      ElMessage.error('连接测试失败：' + errorMessage);
+    } else {
+      // 网络错误或超时
+      let errorMessage = '连接失败';
+
+      if (response.isTimeout) {
+        errorMessage = '连接超时（8秒），请检查网络或更换端点';
+      } else if (response.isNetworkError) {
+        errorMessage = '无法连接到 API 端点，请检查网络或端点地址';
+      } else if (response.error) {
+        errorMessage = `错误：${response.error}`;
       }
 
       testResult.value = {
@@ -202,27 +202,13 @@ async function testModelConnection() {
       };
       ElMessage.error('连接测试失败：' + errorMessage);
     }
-
   } catch (error: any) {
     console.error('测试连接失败:', error);
-
-    let errorMessage = '连接失败';
-
-    if (error.name === 'AbortError' || error.message.includes('timeout')) {
-      errorMessage = '连接超时（8秒），请检查网络或更换端点';
-    } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      errorMessage = '无法连接到 API 端点，请检查网络、代理或端点地址';
-    } else if (error.message.includes('CORS')) {
-      errorMessage = 'CORS 跨域错误，请检查 API 端点配置';
-    } else {
-      errorMessage = `错误：${error.message}`;
-    }
-
     testResult.value = {
       success: false,
-      message: errorMessage
+      message: `错误：${error.message}`
     };
-    ElMessage.error('连接测试失败：' + errorMessage);
+    ElMessage.error('连接测试失败：' + error.message);
   } finally {
     testingModel.value = false;
   }

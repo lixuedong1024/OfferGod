@@ -10,6 +10,11 @@ const isSyncing = ref(false);
 // 计算最近7天的趋势数据
 const recentDays = computed(() => stats.getRecentDays(7));
 
+// 安全访问 activities，确保始终返回数组
+const recentActivities = computed(() => {
+  return Array.isArray(stats.activities) ? stats.activities.slice(0, 10) : [];
+});
+
 // 初始化欢迎信息
 function initWelcomeActivities() {
   if (stats.activities.length === 0) {
@@ -179,7 +184,7 @@ onMounted(async () => {
         <div class="card-body">
           <div class="log">
             <div
-              v-for="(activity, i) in stats.activities.slice(0, 10)"
+              v-for="(activity, i) in recentActivities"
               :key="i"
               :class="['log-row', activity.kind]"
             >
@@ -187,7 +192,7 @@ onMounted(async () => {
               <span class="ico">●</span>
               <span class="msg">{{ activity.msg }}</span>
             </div>
-            <div v-if="stats.activities.length === 0" style="padding: 20px; text-align: center; color: var(--fg-2); font-size: 12px;">
+            <div v-if="recentActivities.length === 0" style="padding: 20px; text-align: center; color: var(--fg-2); font-size: 12px;">
               暂无活动记录
             </div>
           </div>
