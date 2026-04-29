@@ -29,6 +29,27 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
+/* 重置 Element Plus 组件内所有原生输入元素的样式 */
+.el-input input,
+.el-input textarea,
+.el-select input,
+.el-input-number input,
+.el-textarea textarea {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Element Plus 输入框容器 */
+.el-input,
+.el-select,
+.el-input-number,
+.el-textarea {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
 /* Element Plus 输入框 */
 .el-input__wrapper {
   background: rgba(51, 65, 85, 0.6) !important;
@@ -50,6 +71,8 @@
 .el-input__inner {
   color: var(--fg-0) !important;
   background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .el-input__inner::placeholder {
@@ -120,14 +143,22 @@
 
 /* Element Plus 数字输入框 */
 .el-input-number {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.el-input-number .el-input__wrapper {
   background: rgba(51, 65, 85, 0.6) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
 }
 
 .el-input-number__decrease,
 .el-input-number__increase {
   background: transparent !important;
   color: var(--fg-1) !important;
+  border: none !important;
 }
 
 .el-input-number__decrease:hover,
