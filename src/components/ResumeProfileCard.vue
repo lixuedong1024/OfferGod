@@ -93,7 +93,12 @@ async function handleFileUpload(event: Event) {
     });
   } catch (error) {
     loadingMsg.close();
-    Logger.error('简历解析失败', { error: String(error) });
+
+    // 改进错误日志
+    const errorDetails = error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { error: JSON.stringify(error) };
+    Logger.error('简历解析失败', errorDetails);
 
     let errorMessage = '简历解析失败';
     if (error instanceof Error) {
@@ -104,7 +109,12 @@ async function handleFileUpload(event: Event) {
         errorMessage = '简历解析功能需要配置 Claude 模型。请在设置中配置 Claude API。';
       } else if (errorMessage.includes('未配置 AI 模型')) {
         errorMessage = '请先在设置中配置 Claude AI 模型后再上传简历。';
+      } else if (errorMessage.includes('Claude PDF 解析失败')) {
+        // 提取具体的 API 错误信息
+        errorMessage = `Claude API 调用失败: ${errorMessage}`;
       }
+    } else {
+      errorMessage = `简历解析失败: ${JSON.stringify(error)}`;
     }
 
     ElMessage.error({

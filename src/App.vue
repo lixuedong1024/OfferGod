@@ -275,28 +275,50 @@ onMounted(async () => {
         </div>
         <div class="topbar-spacer"></div>
 
-        <!-- 主题切换按钮 -->
-        <button class="theme-toggle" @click="toggleTheme" :title="currentTheme === 'dark' ? '切换到浅色模式' : '切换到深色模式'">
-          <svg v-if="currentTheme === 'dark'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
+        <!-- 右上角工具栏 -->
+        <div class="topbar-actions">
+          <!-- 引擎状态 -->
+          <div :class="['engine-indicator', { paused: !engineRunning }]" title="引擎运行状态">
+            <span class="pulse"></span>
+            <span class="engine-text">平衡模式</span>
+            <span class="engine-count">16/80</span>
+          </div>
 
-        <div :class="['engine-status', { paused: !engineRunning }]">
-          <span class="pulse"></span>
-          <span>引擎 · 平衡模式</span>
-          <span class="muted mono" style="font-size: 10.5px">· 16 / 80</span>
+          <!-- 主题切换 -->
+          <button class="icon-btn" @click="toggleTheme" :title="currentTheme === 'dark' ? '浅色' : '深色'">
+            <svg v-if="currentTheme === 'dark'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+
+          <!-- 工作台快捷入口 -->
+          <button class="icon-btn" @click="navigate('dashboard')" title="工作台">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </button>
+
+          <!-- 设置快捷入口 -->
+          <button class="icon-btn" @click="navigate('settings')" title="设置">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M12 1v6m0 6v6m5.2-13.2l-4.2 4.2m0 6l4.2 4.2M23 12h-6m-6 0H1m13.2 5.2l-4.2-4.2m0-6l-4.2-4.2"></path>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -360,35 +382,84 @@ onMounted(async () => {
   transform: scale(1.1);
 }
 
-/* 主题切换按钮 */
-.theme-toggle {
-  width: 36px;
-  height: 36px;
+/* 顶栏右侧工具栏 */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 引擎状态指示器 */
+.engine-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(20, 184, 166, 0.08);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  font-size: 11px;
+  transition: all 0.2s;
+}
+
+.engine-indicator .pulse {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: rgba(51, 65, 85, 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--fg-0);
+  background: oklch(0.75 0.15 180);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.engine-indicator.paused .pulse {
+  background: oklch(0.65 0.1 60);
+  animation: none;
+}
+
+.engine-indicator .engine-text {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+
+.engine-indicator .engine-count {
+  color: var(--fg-2);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 10px;
+}
+
+/* 图标按钮 */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(51, 65, 85, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--fg-1);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s;
 }
 
-.theme-toggle:hover {
-  background: rgba(51, 65, 85, 0.6);
-  border-color: rgba(20, 184, 166, 0.35);
-  transform: translateY(-1px) rotate(15deg);
-  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.15);
+.icon-btn:hover {
+  background: rgba(51, 65, 85, 0.5);
+  border-color: rgba(20, 184, 166, 0.3);
+  color: var(--fg-0);
+  transform: translateY(-1px);
 }
 
-.theme-toggle svg {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.icon-btn:active {
+  transform: translateY(0);
 }
 
-.theme-toggle:hover svg {
-  transform: scale(1.1);
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 4px rgba(20, 184, 166, 0);
+  }
 }
 </style>

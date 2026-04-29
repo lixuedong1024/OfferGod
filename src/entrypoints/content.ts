@@ -114,6 +114,105 @@ export default defineContentScript({
       }
     });
 
+    // 监听 WebSocket 聊天消息事件
+    window.addEventListener('offergod:chat:message', async (event: any) => {
+      const messages = event.detail;
+      Logger.info('收到聊天消息事件', { count: messages.length });
+
+      try {
+        // 获取现有会话数据
+        const data = await chrome.storage.local.get('chatSessions');
+        const sessions = data.chatSessions || [];
+
+        // 处理每条消息
+        for (const msg of messages) {
+          // 查找或创建会话
+          const sessionId = `${msg.jobId || 'unknown'}_${msg.senderId === userInfo.uid ? msg.receiverId : msg.senderId}`;
+          let session = sessions.find((s: any) => s.id === sessionId);
+
+          if (!session) {
+            // 创建新会话
+            session = {
+              id: sessionId,
+              jobId: msg.jobId || '',
+              bossUid: msg.senderId === userInfo.uid ? msg.receiverId : msg.senderId,
+              bossEncryptUid: '',
+              bossName: msg.senderName || '未知',
+              bossAvatar: '',
+              companyName: msg.companyName || '未知公司',
+              jobTitle: msg.jobTitle || '未知岗位',
+              lastMessage: msg.content,
+              lastMessageTime: msg.timestamp,
+              unreadCount: 0,
+              messages: [],
+            };
+            sessions.unshift(session);
+            Logger.info('创建新会话', { sessionId, jobTitle: session.jobTitle });
+          }
+
+          // 检查消息是否已存在
+          const exists = session.messages.some((m: any) => m.id === msg.id);
+          if (!exists) {
+            // 添加消息
+            const role = msg.senderId === userInfo.uid ? 'user' : 'boss';
+            session.messages.push({
+              id: msg.id,
+              sessionId: session.id,
+              role,
+              content: msg.content,
+              time: msg.timestamp,
+              status: msg.status || 'sent',
+            });
+
+            // 更新会话信息
+            session.lastMessage = msg.content;
+            session.lastMessageTime = msg.timestamp;
+
+            // 如果是 boss 发来的消息，增加未读计数
+            if (role === 'boss') {
+              session.unreadCount++;
+            }
+
+            Logger.debug('添加消息到会话', { sessionId, role, content: msg.content.substring(0, 30) });
+          }
+        }
+
+        // 保存更新后的会话数据
+        await chrome.storage.local.set({ chatSessions: sessions });
+        Logger.info('聊天消息已保存', { sessionCount: sessions.length });
+      } catch (error) {
+        Logger.error('处理聊天消息失败', { error: String(error) });
+      }
+    });
+
+    // 监听 WebSocket 已读消息事件
+    window.addEventListener('offergod:chat:read', async (event: any) => {
+      const readMessages = event.detail;
+      Logger.debug('收到已读消息事件', { count: readMessages.length });
+
+      try {
+        const data = await chrome.storage.local.get('chatSessions');
+        const sessions = data.chatSessions || [];
+
+        for (const readMsg of readMessages) {
+          // 查找会话
+          const session = sessions.find((s: any) => s.bossUid === readMsg.userId);
+          if (session) {
+            // 标记消息为已读
+            const message = session.messages.find((m: any) => m.id === readMsg.messageId);
+            if (message) {
+              message.status = 'read';
+              Logger.debug('标记消息已读', { messageId: readMsg.messageId });
+            }
+          }
+        }
+
+        await chrome.storage.local.set({ chatSessions: sessions });
+      } catch (error) {
+        Logger.error('处理已读消息失败', { error: String(error) });
+      }
+    });
+
     // 连接 WebSocket（可选功能）
     function connectWebSocket() {
       if (!userInfo || !userInfo.uid) {

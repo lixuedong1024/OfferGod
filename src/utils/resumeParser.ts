@@ -124,7 +124,8 @@ export async function parseResumeWithAI(
 
     return parsed;
   } catch (error) {
-    Logger.error('AI 简历解析失败', { error: String(error) });
+    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+    Logger.error('AI 简历解析失败', { error: errorMessage });
     throw error;
   }
 }
@@ -237,7 +238,8 @@ function parseAIResumeResponse(response: string): ParsedResume {
       expectedPosition: parsed.expectedPosition || undefined,
     };
   } catch (error) {
-    Logger.error('解析 AI 简历响应失败', { error: String(error), response: response.slice(0, 500) });
+    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+    Logger.error('解析 AI 简历响应失败', { error: errorMessage, response: response.slice(0, 500) });
     throw new Error('无法解析 AI 返回的简历数据，请检查响应格式');
   }
 }

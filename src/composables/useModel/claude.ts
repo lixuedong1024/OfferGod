@@ -211,10 +211,31 @@ class ClaudeGpt extends llm<claudeLLMConf> {
     useCache: boolean = true
   ): Promise<messageReps> {
     try {
+      console.log('[Claude] 开始解析 PDF 文档', {
+        fileName: pdfFile.name,
+        fileSize: pdfFile.size,
+        fileType: pdfFile.type
+      });
+
       // 读取 PDF 文件并转换为 base64
       const arrayBuffer = await pdfFile.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Data = btoa(String.fromCharCode(...uint8Array));
+
+      console.log('[Claude] PDF 文件读取成功，开始 base64 编码', {
+        arrayBufferSize: arrayBuffer.byteLength
+      });
+
+      // 转换为 base64
+      let binary = '';
+      const len = uint8Array.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      const base64Data = btoa(binary);
+
+      console.log('[Claude] Base64 编码完成', {
+        base64Length: base64Data.length
+      });
 
       const ans: messageReps = { prompt: question };
 
@@ -236,6 +257,12 @@ class ClaudeGpt extends llm<claudeLLMConf> {
         },
       ];
 
+      console.log('[Claude] 开始调用 API', {
+        model: this.conf.model,
+        maxTokens: this.conf.max_tokens,
+        useCache
+      });
+
       const response = await this.client.messages.create({
         model: this.conf.model,
         max_tokens: this.conf.max_tokens || 4096,
@@ -250,6 +277,11 @@ class ClaudeGpt extends llm<claudeLLMConf> {
         ],
       });
 
+      console.log('[Claude] API 调用成功', {
+        contentLength: response.content.length,
+        usage: response.usage
+      });
+
       const responseContent = response.content[0];
       ans.content = responseContent.type === 'text' ? responseContent.text : '';
 
@@ -257,13 +289,26 @@ class ClaudeGpt extends llm<claudeLLMConf> {
         input_tokens: response.usage.input_tokens,
         output_tokens: response.usage.output_tokens,
         total_tokens: response.usage.input_tokens + response.usage.output_tokens,
-        cache_creation_input_tokens: (response.usage as any).cache_creation_input_tokens,
-        cache_read_input_tokens: (response.usage as any).cache_read_input_tokens,
       };
+
+      // 添加 cache 相关统计（如果存在）
+      const usage = response.usage as any;
+      if (usage.cache_creation_input_tokens !== undefined) {
+        (ans.usage as any).cache_creation_input_tokens = usage.cache_creation_input_tokens;
+      }
+      if (usage.cache_read_input_tokens !== undefined) {
+        (ans.usage as any).cache_read_input_tokens = usage.cache_read_input_tokens;
+      }
 
       return ans;
     } catch (error: any) {
-      throw new Error(`Claude PDF 解析失败: ${error.message}`);
+      console.error('[Claude] PDF 解析失败', {
+        error: error.message,
+        stack: error.stack,
+        status: error.status,
+        type: error.type
+      });
+      throw new Error(`Claude PDF 解析失败: ${error.message || JSON.stringify(error)}`);
     }
   }
 }
