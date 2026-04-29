@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onErrorCaptured } from 'vue';
 import { useModel } from '@/composables/useModel';
 import { useTheme } from '@/composables/useTheme';
 import { useChatStore } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
+import { errorHandler } from '@/utils/errorHandler';
+import { Logger } from '@/utils/logger';
 import Dashboard from './pages/Dashboard.vue';
 import Jobs from './pages/Jobs.vue';
 import Workflow from './pages/Workflow.vue';
@@ -15,11 +17,20 @@ import DebugLogs from './pages/DebugLogs.vue';
 import AutoDelivery from './pages/AutoDelivery.vue';
 import DeliveryHistory from './pages/DeliveryHistory.vue';
 import Calendar from './pages/Calendar.vue';
+import TemplateManager from './pages/TemplateManager.vue';
 
 const modelStore = useModel();
 const { currentTheme, toggleTheme, loadTheme } = useTheme();
 const chatStore = useChatStore();
 const userStore = useUserStore();
+
+// 全局错误捕获
+onErrorCaptured((err, instance, info) => {
+  console.error('组件错误:', err, info);
+  errorHandler.handleSystemError(err);
+  // 阻止错误继续传播
+  return false;
+});
 
 interface NavItem {
   id: string;
@@ -55,6 +66,7 @@ const NAV: NavGroup[] = [
     group: '配置',
     items: [
       { id: 'search', label: '搜索条件', icon: 'sliders' },
+      { id: 'templates', label: '模板管理', icon: 'file-text' },
       { id: 'analytics', label: '数据看板', icon: 'chart' },
       { id: 'logs', label: '调试日志', icon: 'settings' },
       { id: 'settings', label: '设置', icon: 'settings' },
@@ -86,6 +98,33 @@ onMounted(async () => {
   await modelStore.initModel();
   await chatStore.loadSessions();
   await userStore.loadUserInfo();
+
+  // 全局未捕获错误
+  window.addEventListener('error', (event) => {
+    Logger.error('全局错误', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+    });
+
+    errorHandler.handleSystemError(
+      new Error(`${event.message} at ${event.filename}:${event.lineno}`)
+    );
+  });
+
+  // Promise 未捕获错误
+  window.addEventListener('unhandledrejection', (event) => {
+    Logger.error('未处理的Promise拒绝', {
+      reason: event.reason,
+    });
+
+    const error = event.reason instanceof Error
+      ? event.reason
+      : new Error(String(event.reason));
+
+    errorHandler.handleSystemError(error);
+  });
 });
 </script>
 
@@ -160,6 +199,13 @@ onMounted(async () => {
               <line x1="1" y1="14" x2="7" y2="14"></line>
               <line x1="9" y1="8" x2="15" y2="8"></line>
               <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+            <svg v-else-if="item.icon === 'file-text'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
             <svg v-else-if="item.icon === 'chart'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="20" x2="18" y2="10"></line>
