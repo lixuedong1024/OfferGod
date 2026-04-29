@@ -12,6 +12,8 @@ const configStore = useConfig();
 const modelStore = useModel();
 
 const showAddModel = ref(false);
+const showEditModel = ref(false);
+const editingModelKey = ref<string | null>(null);
 const selectedModelType = ref('claude');
 const fileInput = ref<HTMLInputElement | null>(null);
 const backupFileInput = ref<HTMLInputElement | null>(null);
@@ -271,6 +273,91 @@ function deleteModel(key: string) {
   modelStore.saveModel();
 }
 
+// 编辑模型
+function editModel(model: any) {
+  editingModelKey.value = model.key;
+  newModel.value = {
+    name: model.name,
+    mode: model.data?.mode || 'claude',
+    api_key: model.data?.api_key || '',
+    base_url: model.data?.base_url || '',
+    model: model.data?.model || '',
+    temperature: model.data?.temperature || 0.7,
+    max_tokens: model.data?.max_tokens || 8192,
+  };
+  selectedModelType.value = model.data?.mode || 'claude';
+  showEditModel.value = true;
+}
+
+// 保存编辑的模型
+function saveEditedModel() {
+  // 验证必填字段
+  if (!newModel.value.name.trim()) {
+    ElMessage.warning('请输入模型名称');
+    return;
+  }
+  if (!newModel.value.api_key.trim()) {
+    ElMessage.warning('请输入 API Key');
+    return;
+  }
+  if (!newModel.value.model.trim()) {
+    ElMessage.warning('请选择模型');
+    return;
+  }
+
+  // 验证 base_url 格式
+  if (newModel.value.base_url && !newModel.value.base_url.startsWith('http')) {
+    ElMessage.warning('API 端点必须以 http:// 或 https:// 开头');
+    return;
+  }
+
+  const modelColors: Record<string, string> = {
+    claude: '#CC9B7A',
+    openai: '#10A37F',
+    deepseek: '#1E88E5',
+    custom: '#9C27B0'
+  };
+
+  // 找到要编辑的模型
+  const modelIndex = modelStore.modelData.findIndex(m => m.key === editingModelKey.value);
+  if (modelIndex === -1) {
+    ElMessage.error('模型不存在');
+    return;
+  }
+
+  // 更新模型数据
+  modelStore.modelData[modelIndex] = {
+    key: editingModelKey.value!,
+    name: newModel.value.name,
+    color: modelColors[newModel.value.mode] || '#666',
+    data: {
+      mode: newModel.value.mode,
+      api_key: newModel.value.api_key,
+      base_url: newModel.value.base_url || modelPresets[newModel.value.mode as keyof typeof modelPresets]?.defaultBaseUrl || '',
+      model: newModel.value.model,
+      temperature: newModel.value.temperature,
+      max_tokens: newModel.value.max_tokens,
+    },
+  } as any;
+
+  modelStore.saveModel();
+  showEditModel.value = false;
+  editingModelKey.value = null;
+
+  // 重置表单
+  newModel.value = {
+    name: '',
+    mode: 'claude',
+    api_key: '',
+    base_url: '',
+    model: 'claude-opus-4-7',
+    temperature: 0.7,
+    max_tokens: 8192,
+  };
+
+  ElMessage.success('模型更新成功');
+}
+
 // 测试已保存的模型
 async function testSavedModel(model: any) {
   const testingKey = `testing_${model.key}`;
@@ -515,7 +602,20 @@ onMounted(async () => {
                   </svg>
                   {{ (model as any)[`testing_${model.key}`] ? '测试中...' : '测试' }}
                 </button>
-                <button class="btn btn-ghost sm" @click="deleteModel(model.key)">删除</button>
+                <button class="btn btn-ghost sm" @click="editModel(model)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  编辑
+                </button>
+                <button class="btn btn-ghost sm" @click="deleteModel(model.key)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  删除
+                </button>
               </div>
             </div>
             <div class="card-body">
@@ -852,6 +952,222 @@ onMounted(async () => {
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
               保存模型
+            </ElButton>
+          </div>
+        </div>
+      </template>
+    </ElDialog>
+
+    <!-- 编辑模型对话框 -->
+    <ElDialog v-model="showEditModel" title="编辑 AI 模型" width="600px">
+      <ElForm :model="newModel" label-width="100px" label-position="left">
+        <ElFormItem label="模型名称" required>
+          <ElInput
+            v-model="newModel.name"
+            placeholder="例如：我的 Claude Opus 4.7"
+            clearable
+          />
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            给这个模型配置起一个便于识别的名称
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="模型类型" required>
+          <ElSelect
+            v-model="newModel.mode"
+            @change="onModelTypeChange"
+            style="width: 100%"
+          >
+            <ElOption label="Claude (Anthropic)" value="claude">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #CC9B7A"></span>
+                <span>Claude (Anthropic)</span>
+              </div>
+            </ElOption>
+            <ElOption label="OpenAI" value="openai">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10A37F"></span>
+                <span>OpenAI</span>
+              </div>
+            </ElOption>
+            <ElOption label="DeepSeek" value="deepseek">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #1E88E5"></span>
+                <span>DeepSeek</span>
+              </div>
+            </ElOption>
+            <ElOption label="自定义 (OpenAI 兼容)" value="custom">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9C27B0"></span>
+                <span>自定义 (OpenAI 兼容)</span>
+              </div>
+            </ElOption>
+          </ElSelect>
+        </ElFormItem>
+
+        <ElFormItem label="API 端点">
+          <ElInput
+            v-model="newModel.base_url"
+            :placeholder="modelPresets[newModel.mode as keyof typeof modelPresets]?.defaultBaseUrl || 'https://api.example.com/v1'"
+            clearable
+          >
+            <template #prepend>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </template>
+          </ElInput>
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            留空使用默认端点。支持自定义代理或中转服务
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="API Key" required>
+          <ElInput
+            v-model="newModel.api_key"
+            type="password"
+            show-password
+            :placeholder="newModel.mode === 'claude' ? 'sk-ant-api03-...' : 'sk-...'"
+            clearable
+          >
+            <template #prepend>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </template>
+          </ElInput>
+          <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            API 密钥将使用 AES-256 加密存储
+          </div>
+        </ElFormItem>
+
+        <ElFormItem label="模型" required>
+          <ElSelect
+            v-if="newModel.mode !== 'custom'"
+            v-model="newModel.model"
+            @change="onModelChange"
+            style="width: 100%"
+          >
+            <template v-if="newModel.mode === 'claude'">
+              <ElOption
+                v-for="model in modelPresets.claude.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
+            </template>
+            <template v-else-if="newModel.mode === 'openai'">
+              <ElOption
+                v-for="model in modelPresets.openai.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
+            </template>
+            <template v-else-if="newModel.mode === 'deepseek'">
+              <ElOption
+                v-for="model in modelPresets.deepseek.models"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span>{{ model.label }}</span>
+                  <span style="font-size: 11px; color: var(--fg-3)">{{ (model.tokens / 1000).toFixed(0) }}K tokens</span>
+                </div>
+              </ElOption>
+            </template>
+          </ElSelect>
+          <ElInput
+            v-else
+            v-model="newModel.model"
+            placeholder="输入模型名称，例如：gpt-4o"
+            clearable
+          />
+          <div v-if="newModel.mode === 'custom'" style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+            自定义模式需要手动输入模型名称
+          </div>
+        </ElFormItem>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+          <ElFormItem label="Temperature">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <ElSlider
+                v-model="newModel.temperature"
+                :min="0"
+                :max="2"
+                :step="0.1"
+                style="flex: 1"
+              />
+              <span style="font-size: 12px; color: var(--fg-1); min-width: 30px">{{ newModel.temperature }}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+              0=确定性，2=创造性
+            </div>
+          </ElFormItem>
+
+          <ElFormItem label="Max Tokens">
+            <ElInputNumber
+              v-model="newModel.max_tokens"
+              :min="1024"
+              :max="200000"
+              :step="1024"
+              style="width: 100%"
+            />
+            <div style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
+              最大输出长度
+            </div>
+          </ElFormItem>
+        </div>
+      </ElForm>
+
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <ElButton
+              :loading="testingModel"
+              :disabled="!newModel.api_key || !newModel.model"
+              @click="testModelConnection"
+            >
+              <svg v-if="!testingModel" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+              {{ testingModel ? '测试中...' : '测试连接' }}
+            </ElButton>
+            <div v-if="testResult" style="font-size: 11px; display: flex; align-items: center; gap: 4px">
+              <svg v-if="testResult.success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span :style="{ color: testResult.success ? '#52c41a' : '#ff4d4f' }">
+                {{ testResult.message }}
+              </span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <ElButton @click="showEditModel = false">取消</ElButton>
+            <ElButton type="primary" @click="saveEditedModel">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              保存修改
             </ElButton>
           </div>
         </div>

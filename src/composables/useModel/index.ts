@@ -57,7 +57,8 @@ export const useModel = defineStore('model', () => {
     );
 
     console.log('加载 AI 模型配置:', decryptedModels.length, '个模型');
-    modelData.value.push(...decryptedModels);
+    // 使用赋值替代 push，避免重复加载
+    modelData.value = decryptedModels;
   }
 
   function getModel(
