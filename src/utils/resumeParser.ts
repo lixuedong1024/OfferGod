@@ -87,14 +87,14 @@ export async function parseResumeWithAI(
     const model = modelStore.modelData[0];
 
     // 检查是否为 Claude 模型
-    if (model.mode !== 'claude') {
+    if (!model.data || model.data.mode !== 'claude') {
       throw new Error('简历解析功能目前仅支持 Claude 模型');
     }
 
     Logger.info('开始使用 Claude 解析 PDF 简历', {
       fileName: pdfFile.name,
       fileSize: `${(pdfFile.size / 1024).toFixed(2)}KB`,
-      model: model.model
+      model: model.data.model
     });
 
     // 构建解析提示词
@@ -124,9 +124,30 @@ export async function parseResumeWithAI(
 
     return parsed;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-    Logger.error('AI 简历解析失败', { error: errorMessage });
-    throw error;
+    // 详细的错误信息序列化
+    let errorDetails: any = {};
+    if (error instanceof Error) {
+      errorDetails = {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      };
+    } else if (typeof error === 'object' && error !== null) {
+      errorDetails = { ...error };
+    } else {
+      errorDetails = { error: String(error) };
+    }
+
+    Logger.error('AI 简历解析失败', errorDetails);
+
+    // 抛出友好的错误信息
+    const friendlyMessage = error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message)
+        : '未知错误';
+
+    throw new Error(`简历解析失败: ${friendlyMessage}`);
   }
 }
 
