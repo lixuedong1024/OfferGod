@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useVirtualList } from '@vueuse/core';
 import { useDeliveryQueue, type DeliveryTask } from '@/composables/useDeliveryQueue';
 import { ElMessage, ElDatePicker, ElSelect, ElOption, ElButton } from 'element-plus';
 
@@ -47,6 +48,15 @@ const filteredHistory = computed(() => {
     return timeB - timeA;
   });
 });
+
+// 虚拟滚动配置
+const { list: virtualHistory, containerProps, wrapperProps } = useVirtualList(
+  filteredHistory,
+  {
+    itemHeight: 100,
+    overscan: 5,
+  }
+);
 
 // 统计数据
 const statistics = computed(() => {
@@ -251,38 +261,40 @@ onMounted(() => {
         <div v-else-if="filteredHistory.length === 0" class="empty">
           暂无历史记录
         </div>
-        <div v-else class="history-list">
-          <div
-            v-for="item in filteredHistory"
-            :key="item.id"
-            class="history-item"
-          >
-            <div class="history-main">
-              <div class="history-info">
-                <div class="history-title">{{ item.jobName }}</div>
-                <div class="history-company">{{ item.companyName }}</div>
+        <div v-else class="history-list-container" v-bind="containerProps">
+          <div v-bind="wrapperProps">
+            <div
+              v-for="{ data: item, index } in virtualHistory"
+              :key="item.id"
+              class="history-item"
+            >
+              <div class="history-main">
+                <div class="history-info">
+                  <div class="history-title">{{ item.jobName }}</div>
+                  <div class="history-company">{{ item.companyName }}</div>
+                </div>
+                <div class="history-status">
+                  <span
+                    class="status-badge"
+                    :style="{ background: getStatusColor(item.status) + '22', color: getStatusColor(item.status) }"
+                  >
+                    {{ getStatusText(item.status) }}
+                  </span>
+                </div>
               </div>
-              <div class="history-status">
-                <span
-                  class="status-badge"
-                  :style="{ background: getStatusColor(item.status) + '22', color: getStatusColor(item.status) }"
-                >
-                  {{ getStatusText(item.status) }}
-                </span>
+              <div class="history-meta">
+                <div class="history-message">{{ item.message }}</div>
+                <div class="history-time">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  {{ formatTime(item.completedAt || item.createdAt) }}
+                </div>
               </div>
-            </div>
-            <div class="history-meta">
-              <div class="history-message">{{ item.message }}</div>
-              <div class="history-time">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                {{ formatTime(item.completedAt || item.createdAt) }}
+              <div v-if="item.error" class="history-error">
+                错误: {{ item.error }}
               </div>
-            </div>
-            <div v-if="item.error" class="history-error">
-              错误: {{ item.error }}
             </div>
           </div>
         </div>
@@ -349,6 +361,11 @@ onMounted(() => {
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
+}
+
+.history-list-container {
+  height: calc(100vh - 520px);
+  overflow-y: auto;
 }
 
 .history-list {
