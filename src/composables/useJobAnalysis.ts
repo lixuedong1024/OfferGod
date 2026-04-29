@@ -156,41 +156,57 @@ export function useJobAnalysis() {
    * 构建分析提示词
    */
   function buildAnalysisPrompt(jobData: any, resume: ResumeProfile): string {
-    return `你是一位专业的求职顾问，请分析以下岗位与候选人的匹配度。
+    return `你是一位资深的职业规划顾问，请对以下岗位与候选人进行全面的匹配度分析。
 
-## 岗位信息
-- 职位：${jobData.jobName}
-- 公司：${jobData.brandName}
-- 薪资：${jobData.salaryDesc}
-- 地点：${jobData.cityName}
-- 经验要求：${jobData.experienceName}
-- 学历要求：${jobData.degreeName}
-- 技能要求：${jobData.jobLabels?.join('、') || '无'}
-- 岗位描述：${jobData.postDescription || '无'}
+# 岗位信息
+- **职位名称**：${jobData.jobName}
+- **公司**：${jobData.brandName}
+- **薪资范围**：${jobData.salaryDesc}
+- **工作地点**：${jobData.cityName}
+- **经验要求**：${jobData.experienceName}
+- **学历要求**：${jobData.degreeName}
+- **技能标签**：${jobData.jobLabels?.join('、') || '无'}
 
-## 候选人信息
-- 工作经验：${resume.experience}
-- 学历：${resume.education}
-- 技能：${resume.skills.join('、')}
-- 项目经验：${resume.projects.join('；')}
-- 优势：${resume.strengths.join('、')}
+## 详细岗位描述
+${jobData.postDescription || '无详细描述'}
 
-请按以下 JSON 格式返回分析结果（只返回 JSON，不要其他内容）：
+# 候选人背景
+- **工作经验**：${resume.experience}
+- **学历背景**：${resume.education}
+- **技能清单**：${resume.skills.join('、')}
+- **项目经验**：${resume.projects.join('；')}
+- **核心优势**：${resume.strengths.join('、')}
+
+# 分析任务
+请从以下维度进行匹配度分析：
+1. **技能匹配**：对比岗位要求的技能与候选人掌握的技能
+2. **经验匹配**：评估工作年限和项目经验的相关性
+3. **学历匹配**：判断学历背景是否符合要求
+4. **综合评估**：考虑候选人的整体竞争力
+
+# 输出要求
+请严格按照以下JSON格式返回分析结果（只返回JSON，不要任何其他文字或markdown标记）：
 
 {
   "score": 85,
-  "matched": ["匹配的技能1", "匹配的要求2"],
-  "missing": ["缺失的技能1", "需要补充的经验2"],
-  "suggestions": ["建议1", "建议2"],
-  "summary": "总体评价和建议",
+  "matched": ["匹配项1：具体说明", "匹配项2：具体说明", "匹配项3：具体说明"],
+  "missing": ["缺失项1：具体说明", "缺失项2：具体说明"],
+  "suggestions": ["建议1：具体可行的改进建议", "建议2：具体可行的改进建议", "建议3：具体可行的改进建议"],
+  "summary": "一段80-120字的综合评价，包含：匹配度总结、主要优势、潜在风险、投递建议",
   "shouldApply": true
 }
 
-评分标准：
-- 90-100分：高度匹配，强烈推荐投递
-- 75-89分：较好匹配，建议投递
-- 60-74分：基本匹配，可以尝试
-- 60分以下：匹配度较低，不建议投递`;
+# 评分标准
+- **90-100分**：高度匹配，核心技能和经验完全符合，强烈推荐投递
+- **75-89分**：较好匹配，主要要求符合，部分技能可以快速补充，建议投递
+- **60-74分**：基本匹配，有一定差距但可以尝试，需要在简历中突出相关经验
+- **60分以下**：匹配度较低，存在明显短板，建议补充经验后再投递
+
+# 注意事项
+- matched 和 missing 数组中每项都要具体说明，不要只列关键词
+- suggestions 要给出可操作的具体建议，不要泛泛而谈
+- summary 要客观中肯，既要指出优势也要提示风险
+- 评分要综合考虑所有维度，不要过于乐观或悲观`;
   }
 
   /**

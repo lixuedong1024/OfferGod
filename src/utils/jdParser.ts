@@ -42,17 +42,21 @@ export async function parseJobDescription(
     }
 
     // 构建AI解析提示词
-    const prompt = `请分析以下招聘JD，提取结构化信息。
+    const prompt = `你是一位专业的招聘分析专家，擅长从JD中提取结构化信息。请仔细分析以下招聘信息，提取所有关键要求。
 
-岗位名称：${jobName}
-经验要求：${experienceName}
-学历要求：${degreeName}
-岗位标签：${jobLabels.join('、')}
+# 岗位信息
+- 职位名称：${jobName}
+- 经验要求：${experienceName}
+- 学历要求：${degreeName}
+- 技能标签：${jobLabels.join('、') || '无'}
 
-岗位描述：
+# 岗位描述
 ${description}
 
-请以JSON格式返回以下信息（只返回JSON，不要其他文字）：
+# 任务要求
+请提取以下结构化信息，以JSON格式返回（只返回JSON，不要任何其他文字或解释）：
+
+## 输出格式示例
 {
   "experience": {
     "min": 3,
@@ -86,32 +90,43 @@ ${description}
     }
   ],
   "responsibilities": [
-    "负责后端系统开发",
-    "参与技术方案设计"
+    "负责后端系统开发和维护",
+    "参与技术方案设计和评审"
   ],
   "requirements": [
     "3年以上Python开发经验",
-    "熟悉Django/Flask框架"
+    "熟悉Django/Flask等主流框架",
+    "有微服务架构实践经验"
   ],
   "bonusPoints": [
-    "有大型项目经验",
-    "有开源贡献"
+    "有大型互联网项目经验",
+    "有开源项目贡献经验"
   ],
   "keywords": [
     "Python",
     "Django",
     "后端开发",
-    "微服务"
+    "微服务",
+    "RESTful API"
   ]
 }
 
-注意：
-1. experience.max 如果不限则设为 -1
-2. skill.level 只能是：精通/熟悉/了解
-3. skill.category 只能是：编程语言/框架/工具/数据库/软技能
-4. education.level 只能是：不限/高中/大专/本科/硕士/博士
-5. 提取所有技能要求，包括编程语言、框架、工具、数据库等
-6. keywords 提取5-10个最重要的关键词`;
+## 字段约束
+1. **experience.max**: 如果没有上限或"以上"则设为 -1
+2. **skill.level**: 只能是"精通"、"熟悉"或"了解"三者之一
+3. **skill.category**: 只能是"编程语言"、"框架"、"工具"、"数据库"或"软技能"
+4. **education.level**: 只能是"不限"、"高中"、"大专"、"本科"、"硕士"或"博士"
+5. **skills**: 提取所有明确提到的技能，包括编程语言、框架、工具、数据库等，区分必须(required=true)和加分项(required=false)
+6. **responsibilities**: 提取3-5条主要工作职责，使用完整句子
+7. **requirements**: 提取3-5条核心任职要求，使用完整句子
+8. **bonusPoints**: 提取加分项，如"优先"、"有...经验更佳"等
+9. **keywords**: 提取5-10个最能代表该岗位的关键词
+
+## 提取原则
+- 仔细阅读岗位描述，不要遗漏隐含的技能要求
+- 根据"精通"、"熟悉"、"了解"等词判断技能等级，如无明确说明则根据上下文推断
+- 区分硬性要求(required=true)和加分项(required=false)
+- responsibilities 和 requirements 要提取完整的句子，不要只提取关键词`;
 
     // 调用AI模型
     const response = await modelStore.chat(prompt);

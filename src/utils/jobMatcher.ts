@@ -333,20 +333,40 @@ async function generateAISuggestion(
   try {
     const modelStore = useModel();
     if (modelStore.currentModel.value) {
-      const prompt = `作为求职顾问，请分析以下岗位匹配情况，给出投递建议（50字以内）：
+      const prompt = `你是一位专业的求职顾问，请基于以下匹配分析给出投递建议。
 
-岗位：${jobName}
-匹配分数：${totalScore}/100
+# 岗位信息
+- 职位名称：${jobName}
+- 综合匹配度：${totalScore}/100
 
-经验匹配：${experienceMatch.detail}
-学历匹配：${educationMatch.detail}
-技能匹配：匹配 ${skillsMatch.matched.length} 项，缺失 ${skillsMatch.missing.length} 项
+# 详细匹配情况
+## 工作经验
+${experienceMatch.detail}
+评分：${experienceMatch.score}/100
 
-请给出：
-1. 是否建议投递（建议投递/谨慎投递/不建议投递）
-2. 简短理由（一句话）
+## 学历背景
+${educationMatch.detail}
+评分：${educationMatch.score}/100
 
-格式：[建议]。[理由]`;
+## 技能匹配
+- 匹配的必备技能：${skillsMatch.matched.length} 项${skillsMatch.matched.length > 0 ? '（' + skillsMatch.matchedNames.slice(0, 3).join('、') + (skillsMatch.matched.length > 3 ? ' 等' : '') + '）' : ''}
+- 缺失的必备技能：${skillsMatch.missing.length} 项${skillsMatch.missing.length > 0 ? '（' + skillsMatch.missingNames.slice(0, 3).join('、') + (skillsMatch.missing.length > 3 ? ' 等' : '') + '）' : ''}
+- 加分项技能：${skillsMatch.bonus.length} 项
+评分：${skillsMatch.score}/100
+
+# 任务要求
+请给出专业的投递建议，要求：
+1. 明确表态：建议投递/谨慎投递/不建议投递
+2. 给出核心理由（一句话，30字以内）
+3. 直接输出建议内容，格式：[建议]。[理由]
+
+# 评判标准
+- 85分以上：强烈建议投递，匹配度很高
+- 70-84分：建议投递，匹配度良好
+- 60-69分：谨慎投递，需要突出优势
+- 60分以下：不建议投递，匹配度较低
+
+请直接输出建议，不要其他解释。`;
 
       const aiResponse = await modelStore.chat(prompt);
 
