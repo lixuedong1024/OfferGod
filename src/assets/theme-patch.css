@@ -185,28 +185,30 @@
   color: #06b6d4 !important;
 }
 
-/* 输入框玻璃态 */
-input[type="text"],
-input[type="number"],
-textarea,
-select {
+/* 输入框玻璃态 - 排除 Element Plus 组件内部元素 */
+input[type="text"]:not(.el-input__inner):not(.el-select__input):not(.el-range-input),
+input[type="number"]:not(.el-input__inner):not(.el-input-number__original),
+textarea:not(.el-textarea__inner),
+select:not(.el-select) {
   background: rgba(51, 65, 85, 0.6) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: var(--fg-0) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-input:hover,
-textarea:hover,
-select:hover {
+input[type="text"]:not(.el-input__inner):not(.el-select__input):not(.el-range-input):hover,
+input[type="number"]:not(.el-input__inner):not(.el-input-number__original):hover,
+textarea:not(.el-textarea__inner):hover,
+select:not(.el-select):hover {
   border-color: rgba(20, 184, 166, 0.35) !important;
   box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1) !important;
   transform: translateY(-1px) !important;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
+input[type="text"]:not(.el-input__inner):not(.el-select__input):not(.el-range-input):focus,
+input[type="number"]:not(.el-input__inner):not(.el-input-number__original):focus,
+textarea:not(.el-textarea__inner):focus,
+select:not(.el-select):focus {
   outline: none !important;
   border-color: #14b8a6 !important;
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1) !important;
@@ -455,9 +457,10 @@ input[type="radio"]:checked {
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
-[data-theme='light'] input,
-[data-theme='light'] textarea,
-[data-theme='light'] select,
+[data-theme='light'] input[type="text"]:not(.el-input__inner):not(.el-select__input):not(.el-range-input),
+[data-theme='light'] input[type="number"]:not(.el-input__inner):not(.el-input-number__original),
+[data-theme='light'] textarea:not(.el-textarea__inner),
+[data-theme='light'] select:not(.el-select),
 [data-theme='light'] .el-input__wrapper {
   background: rgba(255, 255, 255, 0.9) !important;
   border: 1px solid #e2e8f0 !important;
