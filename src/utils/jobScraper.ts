@@ -248,6 +248,13 @@ export async function saveJobsToStorage(jobs: JobData[]): Promise<void> {
     console.log(`✅ 岗位数据已保存: 总计 ${allJobs.length} 个 (新增 ${newCount}, 更新 ${updateCount})`);
   } catch (error) {
     console.error('保存岗位数据失败:', error);
+    console.error('错误详情:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error,
+      error
+    });
+    throw error; // 重新抛出错误以便上层捕获
   }
 }
 

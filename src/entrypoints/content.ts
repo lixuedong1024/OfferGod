@@ -88,7 +88,11 @@ export default defineContentScript({
           const saved = await chrome.storage.local.get('jobs');
           Logger.debug('验证保存的数据', { savedCount: saved.jobs?.length });
         } catch (error) {
-          Logger.error('保存岗位数据失败', { error: String(error) });
+          Logger.error('保存岗位数据失败', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          console.error('保存岗位数据详细错误:', error);
         }
       }
 
