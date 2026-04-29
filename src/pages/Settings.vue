@@ -181,11 +181,22 @@ async function testModelConnection() {
       }
     }
   } catch (error: any) {
+    console.error('测试连接失败:', error);
+    let errorMessage = '网络错误';
+
+    if (error.message.includes('Failed to fetch')) {
+      errorMessage = '无法连接到 API 端点，请检查：1) 网络连接 2) API 端点地址是否正确 3) 是否需要代理';
+    } else if (error.message.includes('CORS')) {
+      errorMessage = 'CORS 跨域错误，请检查 API 端点配置';
+    } else {
+      errorMessage = error.message;
+    }
+
     testResult.value = {
       success: false,
-      message: `网络错误：${error.message}`
+      message: errorMessage
     };
-    ElMessage.error('测试失败：' + error.message);
+    ElMessage.error('测试失败：' + errorMessage);
   } finally {
     testingModel.value = false;
   }
@@ -719,10 +730,10 @@ onMounted(async () => {
 
         <ElFormItem label="模型" required>
           <ElSelect
+            v-if="newModel.mode !== 'custom'"
             v-model="newModel.model"
             @change="onModelChange"
             style="width: 100%"
-            :disabled="newModel.mode === 'custom'"
           >
             <template v-if="newModel.mode === 'claude'">
               <ElOption
@@ -765,11 +776,10 @@ onMounted(async () => {
             </template>
           </ElSelect>
           <ElInput
-            v-if="newModel.mode === 'custom'"
+            v-else
             v-model="newModel.model"
             placeholder="输入模型名称，例如：gpt-4o"
             clearable
-            style="margin-top: 8px"
           />
           <div v-if="newModel.mode === 'custom'" style="font-size: 11px; color: var(--fg-3); margin-top: 4px">
             自定义模式需要手动输入模型名称
