@@ -5,6 +5,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   srcDir: 'src',
+  outDir: 'dist',
   modules: ['@wxt-dev/module-vue'],
   manifest: {
     name: 'OfferGod - Offer之神',
@@ -37,7 +38,7 @@ export default defineConfig({
         closeBundle() {
           try {
             const workerSrc = resolve(__dirname, 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs');
-            const workerDest = resolve(__dirname, '.output/chrome-mv3/pdf.worker.min.mjs');
+            const workerDest = resolve(__dirname, 'dist/chrome-mv3/pdf.worker.min.mjs');
             copyFileSync(workerSrc, workerDest);
             console.log('✓ PDF.js worker 文件已复制');
           } catch (error) {

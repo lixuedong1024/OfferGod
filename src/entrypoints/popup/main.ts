@@ -30,14 +30,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       if (tab.url && tab.url.includes('zhipin.com')) {
-        // 在当前标签页注入内容脚本
+        // 检查 content script 是否已加载
         try {
+          // 先尝试 ping content script
+          await chrome.tabs.sendMessage(tab.id!, { action: 'ping' });
+
+          // 如果成功，发送打开工作台消息
           await chrome.tabs.sendMessage(tab.id!, { action: 'openDashboard' });
           window.close();
         } catch (error) {
-          console.error('发送消息失败:', error);
-          // 刷新页面重新加载 content script
-          chrome.tabs.reload(tab.id!);
+          console.log('Content script 未加载，刷新页面');
+          // Content script 未加载，刷新页面后再打开
+          await chrome.tabs.reload(tab.id!);
+
+          // 等待页面加载完成后再发送消息
+          chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+            if (tabId === tab.id && info.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(listener);
+              // 延迟发送消息，确保 content script 已加载
+              setTimeout(async () => {
+                try {
+                  await chrome.tabs.sendMessage(tab.id!, { action: 'openDashboard' });
+                } catch (e) {
+                  console.log('刷新后仍无法发送消息，用户需要手动打开');
+                }
+              }, 500);
+            }
+          });
+
           window.close();
         }
       } else {
@@ -65,12 +85,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab.url && tab.url.includes('zhipin.com')) {
         try {
+          // 先 ping 检查 content script 是否存在
+          await chrome.tabs.sendMessage(tab.id!, { action: 'ping' });
           await chrome.tabs.sendMessage(tab.id!, {
             action: 'toggleTheme',
             theme: newTheme
           });
         } catch (error) {
-          console.error('发送主题切换消息失败:', error);
+          // Content script 未加载，静默失败（主题已保存，下次加载时会生效）
+          console.log('Content script 未加载，主题将在页面刷新后生效');
         }
       }
     });

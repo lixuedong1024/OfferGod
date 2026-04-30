@@ -4,7 +4,9 @@ import { useModel } from '@/composables/useModel';
 import { useTheme } from '@/composables/useTheme';
 import { useChatStore } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
+import { useJobStore } from '@/stores/job';
 import { errorHandler, ErrorType } from '@/utils/errorHandler';
+import { watchExtensionContext } from '@/utils/extensionContext';
 import { useErrorNotification } from '@/composables/useErrorNotification';
 import { Logger } from '@/utils/logger';
 import Dashboard from './pages/Dashboard.vue';
@@ -24,6 +26,7 @@ const modelStore = useModel();
 const { currentTheme, toggleTheme, setTheme, loadTheme } = useTheme();
 const chatStore = useChatStore();
 const userStore = useUserStore();
+const jobStore = useJobStore();
 const { show } = useErrorNotification();
 
 // 错误类型到通知类型的映射
@@ -107,7 +110,28 @@ const NAV: NavGroup[] = [
 ];
 
 const currentPage = ref('dashboard');
-const engineRunning = ref(true);
+
+// 吉祥物状态 - Offer God 的神谕
+const mascotStates = [
+  { emoji: '✨', text: '神在注视着你' },
+  { emoji: '🎁', text: 'Offer 即将降临' },
+  { emoji: '🔮', text: '预言：今日必有回音' },
+  { emoji: '⚡', text: '神力加持中...' },
+  { emoji: '🌟', text: '你的简历在发光' },
+  { emoji: '🎯', text: '命中注定的 Offer' },
+  { emoji: '🍀', text: '幸运女神眷顾你' },
+  { emoji: '🔥', text: 'HR 正在看你简历' },
+  { emoji: '💫', text: '好运正在路上' },
+  { emoji: '🎪', text: '面试官已被征服' },
+];
+const currentMascotIndex = ref(0);
+
+// 每8秒切换一次吉祥物状态
+setInterval(() => {
+  currentMascotIndex.value = (currentMascotIndex.value + 1) % mascotStates.length;
+}, 8000);
+
+const currentMascot = computed(() => mascotStates[currentMascotIndex.value]);
 
 function navigate(page: string) {
   currentPage.value = page;
@@ -126,10 +150,14 @@ function getInboxBadge() {
 }
 
 onMounted(async () => {
+  // 启动扩展上下文监听
+  watchExtensionContext();
+
   await loadTheme();
   await modelStore.initModel();
   await chatStore.loadSessions();
   await userStore.loadUserInfo();
+  await jobStore.loadFromStorage();
 
   // 监听来自popup的主题切换事件
   window.addEventListener('offergod-theme-change', (event: any) => {
@@ -263,13 +291,9 @@ onMounted(async () => {
       </template>
 
       <div class="sidebar-foot">
-        <div class="avatar">{{ userStore.userInfo?.name?.[0] || '张' }}</div>
-        <div class="user-meta">
-          <span class="user-name">{{ userStore.userInfo?.name || '张工' }}</span>
-          <span class="user-status">
-            <span class="dot"></span>
-            {{ engineRunning ? '引擎运行中' : '已暂停' }}
-          </span>
+        <div class="user-status">
+          <span class="mascot-emoji">{{ currentMascot.emoji }}</span>
+          {{ currentMascot.text }}
         </div>
       </div>
     </aside>
@@ -283,11 +307,11 @@ onMounted(async () => {
 
         <!-- 右上角工具栏 -->
         <div class="topbar-actions">
-          <!-- 引擎状态 -->
-          <div :class="['engine-indicator', { paused: !engineRunning }]" title="引擎运行状态">
+          <!-- 岗位统计 -->
+          <div class="engine-indicator" :title="`已收集 ${jobStore?.totalCount || 0} 个岗位`">
             <span class="pulse"></span>
-            <span class="engine-text">平衡模式</span>
-            <span class="engine-count">16/80</span>
+            <span class="engine-text">岗位池</span>
+            <span class="engine-count">{{ jobStore?.totalCount || 0 }}</span>
           </div>
 
           <!-- 主题切换 -->
@@ -466,6 +490,23 @@ onMounted(async () => {
   50% {
     opacity: 0.8;
     box-shadow: 0 0 0 4px rgba(20, 184, 166, 0);
+  }
+}
+
+/* 吉祥物 emoji 样式 */
+.mascot-emoji {
+  display: inline-block;
+  font-size: 12px;
+  margin-right: 4px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
   }
 }
 </style>

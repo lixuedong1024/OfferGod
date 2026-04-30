@@ -117,15 +117,22 @@ async function testModelConnection() {
     // 构建 /v1/models 端点 URL（参考 cc-switch 的实现）
     let modelsUrl: string;
     try {
-      const url = new URL(baseUrl);
+      // 规范化 baseUrl：智能添加斜杠
+      let normalizedBaseUrl = baseUrl.trim();
+
+      // 如果 URL 中包含端口号后直接跟着路径（如 :8080v1），添加斜杠
+      normalizedBaseUrl = normalizedBaseUrl.replace(/(:(\d+))([a-zA-Z])/, '$1/$3');
+
+      const url = new URL(normalizedBaseUrl);
+
       // 确保路径以 /v1/models 结尾
       if (url.pathname.endsWith('/')) {
-        modelsUrl = `${baseUrl}v1/models`;
+        modelsUrl = `${normalizedBaseUrl}v1/models`;
       } else if (url.pathname.includes('/v1')) {
         // 如果已经包含 /v1，替换为 /v1/models
-        modelsUrl = baseUrl.replace(/\/v1.*$/, '/v1/models');
+        modelsUrl = normalizedBaseUrl.replace(/\/v1.*$/, '/v1/models');
       } else {
-        modelsUrl = `${baseUrl}/v1/models`;
+        modelsUrl = `${normalizedBaseUrl}/v1/models`;
       }
     } catch (e) {
       throw new Error('无效的 API 端点地址');

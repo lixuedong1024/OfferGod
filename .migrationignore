@@ -1,0 +1,24 @@
+# 依赖和构建产物
+node_modules/
+.output/
+dist/
+.wxt/
+
+# 临时文件
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# 系统文件
+Thumbs.db
+desktop.ini
+
+# 测试文件（已删除的）
+test*.py
+test*.sh
+*.pdf
+
+# 其他临时文件
+.cache/
+.temp/

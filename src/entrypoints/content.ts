@@ -291,7 +291,11 @@ export default defineContentScript({
 
     // 监听来自 popup 的消息
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'openDashboard' || request.action === 'openSettings') {
+      if (request.action === 'ping') {
+        // 用于检测 content script 是否已加载
+        sendResponse({ success: true, loaded: true });
+        return true;
+      } else if (request.action === 'openDashboard' || request.action === 'openSettings') {
         // 如果已经存在，先移除
         if (container) {
           container.remove();

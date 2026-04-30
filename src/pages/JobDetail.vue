@@ -253,11 +253,12 @@ const loadJobDetail = async () => {
         matched = ['请先完善简历信息'];
         missing = ['需要填写工作经验、技能等信息'];
         aiSuggestion = '请先在设置中完善简历信息，以便进行精准匹配分析。';
-      } else if (!jobData.postDescription) {
-        matched = ['岗位信息不完整'];
-        missing = ['缺少岗位描述'];
-        aiSuggestion = '该岗位缺少详细描述，建议直接查看原页面或联系HR了解详情。';
       }
+
+      // 确保 skills 是数组类型
+      const normalizedSkills = Array.isArray(jobData.skills)
+        ? jobData.skills
+        : (typeof jobData.skills === 'string' ? [jobData.skills] : []);
 
       job.value = {
         id: jobData.encryptJobId,
@@ -270,7 +271,7 @@ const loadJobDetail = async () => {
         education: jobData.degreeName || '不限',
         description: jobData.postDescription || '暂无描述',
         tags: jobData.jobLabels || [],
-        skills: jobData.skills || [],
+        skills: normalizedSkills,
         welfare: jobData.welfareList || [],
         hr: {
           name: jobData.bossName || 'HR',
@@ -320,7 +321,8 @@ const generateGreeting = () => {
 
   // 获取简历中的关键信息
   const yearsOfExp = resume?.experience?.[0]?.duration || '多年';
-  const topSkills = resume?.skills?.slice(0, 3).map(s => s.name).join('、') || job.value.skills.slice(0, 2).join('、');
+  const jobSkills = Array.isArray(job.value.skills) ? job.value.skills : [];
+  const topSkills = resume?.skills?.slice(0, 3).map(s => s.name).join('、') || jobSkills.slice(0, 2).join('、');
   const recentProject = resume?.experience?.[0]?.projects?.[0]?.name || '';
 
   // 根据匹配度调整语气

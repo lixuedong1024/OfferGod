@@ -3,6 +3,7 @@
  */
 
 import { Logger } from './logger';
+import { isContextInvalidatedError, handleContextInvalidated } from './extensionContext';
 
 export enum ErrorType {
   NETWORK = 'network',
@@ -35,6 +36,12 @@ class ErrorHandler {
    * 处理错误
    */
   handle(error: Error | string, type: ErrorType = ErrorType.UNKNOWN, onRetry?: () => void): void {
+    // 检查是否是扩展上下文失效错误
+    if (isContextInvalidatedError(error)) {
+      handleContextInvalidated();
+      return; // 不再继续处理，因为页面即将刷新
+    }
+
     const errorInfo: ErrorInfo = {
       type,
       message: typeof error === 'string' ? error : error.message,
