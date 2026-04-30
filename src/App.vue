@@ -13,14 +13,12 @@ import Dashboard from './pages/Dashboard.vue';
 import Jobs from './pages/Jobs.vue';
 import Workflow from './pages/Workflow.vue';
 import Settings from './pages/Settings.vue';
-import SearchConfig from './pages/SearchConfig.vue';
 import Analytics from './pages/Analytics.vue';
 import Inbox from './pages/Inbox.vue';
 import DebugLogs from './pages/DebugLogs.vue';
 import AutoDelivery from './pages/AutoDelivery.vue';
 import DeliveryHistory from './pages/DeliveryHistory.vue';
 import Calendar from './pages/Calendar.vue';
-import TemplateManager from './pages/TemplateManager.vue';
 
 const modelStore = useModel();
 const { currentTheme, toggleTheme, setTheme, loadTheme } = useTheme();
@@ -100,8 +98,6 @@ const NAV: NavGroup[] = [
   {
     group: '配置',
     items: [
-      { id: 'search', label: '搜索条件', icon: 'sliders' },
-      { id: 'templates', label: '模板管理', icon: 'file-text' },
       { id: 'analytics', label: '数据看板', icon: 'chart' },
       { id: 'logs', label: '调试日志', icon: 'settings' },
       { id: 'settings', label: '设置', icon: 'settings' },
@@ -360,7 +356,6 @@ onMounted(async () => {
         <Calendar v-else-if="currentPage === 'calendar'" />
         <Inbox v-else-if="currentPage === 'inbox'" />
         <Workflow v-else-if="currentPage === 'workflow'" />
-        <SearchConfig v-else-if="currentPage === 'search'" />
         <Analytics v-else-if="currentPage === 'analytics'" />
         <DebugLogs v-else-if="currentPage === 'logs'" />
         <Settings v-else-if="currentPage === 'settings'" />

@@ -72,75 +72,6 @@ export default defineUnlistedScript(() => {
     });
   }
 
-  /**
-   * Hook Vue 数据，监听数据变化
-   */
-  function hookVueData<T = any>(
-    vueInstance: any,
-    key: string,
-    callback: (value: T) => void
-  ): () => void {
-    // 获取初始值
-    const initialValue = vueInstance[key];
-    if (initialValue !== undefined) {
-      callback(initialValue);
-    }
-
-    // 劫持 setter
-    const originalSetter = vueInstance.__lookupSetter__(key);
-    const originalGetter = vueInstance.__lookupGetter__(key);
-
-    Object.defineProperty(vueInstance, key, {
-      get() {
-        if (originalGetter) {
-          return originalGetter.call(this);
-        }
-        return this[`__offergod_${key}`];
-      },
-      set(newValue: T) {
-        // 调用原始 setter
-        if (originalSetter) {
-          originalSetter.call(this, newValue);
-        } else {
-          this[`__offergod_${key}`] = newValue;
-        }
-
-        // 触发回调
-        callback(newValue);
-      },
-      configurable: true,
-      enumerable: true,
-    });
-
-    // 返回清理函数
-    return () => {
-      if (originalSetter || originalGetter) {
-        Object.defineProperty(vueInstance, key, {
-          get: originalGetter,
-          set: originalSetter,
-          configurable: true,
-          enumerable: true,
-        });
-      }
-    };
-  }
-
-  /**
-   * Hook Vue 方法
-   */
-  function hookVueMethod(
-    vueInstance: any,
-    methodName: string
-  ): (...args: any[]) => any {
-    const method = vueInstance[methodName];
-
-    if (typeof method !== 'function') {
-      throw new Error(`${methodName} 不是一个函数`);
-    }
-
-    return method.bind(vueInstance);
-  }
-
   // ==================== 初始化 Vue Hook ====================
 
   // 获取用户信息（可选功能）
@@ -235,8 +166,12 @@ export default defineUnlistedScript(() => {
     key: string,
     callback: (value: T) => void
   ): () => void {
+    console.log(`🔧 开始 Hook Vue 数据: ${key}`);
+
     // 获取初始值
     const initialValue = vueInstance[key];
+    console.log(`📊 ${key} 初始值:`, initialValue);
+
     if (initialValue !== undefined) {
       callback(initialValue);
     }
@@ -244,6 +179,8 @@ export default defineUnlistedScript(() => {
     // 劫持 setter
     const originalSetter = vueInstance.__lookupSetter__(key);
     const originalGetter = vueInstance.__lookupGetter__(key);
+
+    console.log(`🔍 ${key} - originalSetter:`, !!originalSetter, 'originalGetter:', !!originalGetter);
 
     Object.defineProperty(vueInstance, key, {
       get() {
@@ -253,6 +190,8 @@ export default defineUnlistedScript(() => {
         return this[`__offergod_${key}`];
       },
       set(newValue: T) {
+        console.log(`🔔 ${key} 数据变化:`, newValue);
+
         // 调用原始 setter
         if (originalSetter) {
           originalSetter.call(this, newValue);
@@ -266,6 +205,8 @@ export default defineUnlistedScript(() => {
       configurable: true,
       enumerable: true,
     });
+
+    console.log(`✅ ${key} Hook 完成`);
 
     // 返回清理函数
     return () => {
@@ -298,7 +239,12 @@ export default defineUnlistedScript(() => {
 
   // 初始化 Vue 实例
   async function initVueInstance() {
-    if (vueInstance) return vueInstance;
+    if (vueInstance) {
+      console.log('🔄 Vue 实例已存在，跳过初始化');
+      return vueInstance;
+    }
+
+    console.log('🚀 开始初始化 Vue 实例...');
 
     const selectors = [
       '.page-job-wrapper',
@@ -308,14 +254,21 @@ export default defineUnlistedScript(() => {
 
     for (const selector of selectors) {
       try {
+        console.log(`🔍 尝试查找 Vue 实例: ${selector}`);
         vueInstance = await waitForVue(selector, 3000);
         if (vueInstance) {
           console.log('✅ 找到 Vue 实例:', selector);
+          console.log('📋 Vue 实例属性:', Object.keys(vueInstance).slice(0, 20));
 
           // Hook jobDetail 数据变化
           try {
+            console.log('🎯 开始 Hook jobDetail...');
             hookVueData(vueInstance, 'jobDetail', (value) => {
-              console.log('📦 jobDetail 数据更新:', value?.jobInfo?.jobName);
+              console.log('📦 jobDetail 数据更新:', {
+                jobName: value?.jobInfo?.jobName,
+                hasPostDescription: !!value?.jobInfo?.postDescription,
+                postDescriptionLength: value?.jobInfo?.postDescription?.length || 0
+              });
               jobDetailData = value;
 
               // 自动发送到 content script
@@ -409,25 +362,51 @@ export default defineUnlistedScript(() => {
       console.log('🔍 开始获取岗位描述...');
 
       // 方法0: 从 Hook 的 jobDetailData 获取（最优先）
+      console.log('📊 检查 jobDetailData:', {
+        exists: !!jobDetailData,
+        hasJobInfo: !!jobDetailData?.jobInfo,
+        hasPostDescription: !!jobDetailData?.jobInfo?.postDescription,
+        keys: jobDetailData ? Object.keys(jobDetailData).slice(0, 10) : []
+      });
+
       if (jobDetailData && jobDetailData.jobInfo) {
         const description = jobDetailData.jobInfo.postDescription || '';
         if (description) {
           console.log('✅ 从 Hook 的 jobDetailData 获取到描述，长度:', description.length);
           return description;
+        } else {
+          console.log('⚠️ jobDetailData.jobInfo 存在但 postDescription 为空');
         }
       }
 
       // 方法1: 从 __INITIAL_STATE__ 获取
+      console.log('📊 检查 __INITIAL_STATE__:', {
+        exists: !!(window as any).__INITIAL_STATE__,
+        hasJobDetail: !!(window as any).__INITIAL_STATE__?.jobDetail,
+        keys: (window as any).__INITIAL_STATE__ ? Object.keys((window as any).__INITIAL_STATE__).slice(0, 10) : []
+      });
+
       if ((window as any).__INITIAL_STATE__?.jobDetail) {
         const jobDetail = (window as any).__INITIAL_STATE__.jobDetail;
+        console.log('📊 __INITIAL_STATE__.jobDetail 结构:', {
+          hasJobInfo: !!jobDetail.jobInfo,
+          hasPostDescription: !!jobDetail.postDescription,
+          hasJobDescription: !!jobDetail.jobDescription,
+          jobInfoKeys: jobDetail.jobInfo ? Object.keys(jobDetail.jobInfo).slice(0, 10) : [],
+          topLevelKeys: Object.keys(jobDetail).slice(0, 10)
+        });
+
         const description = jobDetail.jobInfo?.postDescription || jobDetail.postDescription || jobDetail.jobDescription || '';
         if (description) {
           console.log('✅ 从 __INITIAL_STATE__ 获取到描述，长度:', description.length);
           return description;
+        } else {
+          console.log('⚠️ __INITIAL_STATE__.jobDetail 存在但未找到描述字段');
         }
       }
 
       // 方法2: 从 Vue 实例获取
+      console.log('📊 开始尝试从 Vue 实例获取...');
       const vueSelectors = [
         '.job-detail-section',
         '.job-detail',
@@ -439,8 +418,21 @@ export default defineUnlistedScript(() => {
 
       for (const selector of vueSelectors) {
         const element = document.querySelector(selector) as any;
+        console.log(`🔍 检查选择器 ${selector}:`, {
+          elementExists: !!element,
+          hasVue: !!element?.__vue__
+        });
+
         if (element && element.__vue__) {
           const vue = element.__vue__;
+          console.log(`📊 Vue 实例 (${selector}) 结构:`, {
+            hasJobDetail: !!vue.jobDetail,
+            hasJobInfo: !!vue.jobInfo,
+            hasPostDescription: !!vue.postDescription,
+            has$data: !!vue.$data,
+            topLevelKeys: Object.keys(vue).slice(0, 15)
+          });
+
           const description = vue.jobDetail?.jobInfo?.postDescription ||
                             vue.jobDetail?.postDescription ||
                             vue.jobInfo?.postDescription ||
@@ -454,6 +446,7 @@ export default defineUnlistedScript(() => {
           }
         }
       }
+      console.log('⚠️ 所有 Vue 实例选择器都未找到描述');
 
       // 方法3: 从 DOM 获取
       const descSelectors = [

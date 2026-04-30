@@ -185,12 +185,21 @@
               <el-switch v-model="configStore.config.strategy.useAI" />
             </el-form-item>
             <el-form-item label="打招呼语模板">
-              <el-input
-                v-model="configStore.config.strategy.greetingTemplate"
-                type="textarea"
-                :rows="3"
-                placeholder="支持变量: {jobTitle} {company} {experience} {skills}"
-              />
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <el-input
+                  v-model="configStore.config.strategy.greetingTemplate"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="支持变量: {jobTitle} {company} {experience} {skills}"
+                  style="flex: 1;"
+                />
+                <TemplateSelector @select="handleTemplateSelect" />
+              </div>
+              <div style="margin-top: 8px;">
+                <el-button text size="small" @click="showTemplateManager = true">
+                  管理模板
+                </el-button>
+              </div>
             </el-form-item>
             <el-form-item label="优先高分岗位">
               <el-switch v-model="configStore.config.strategy.prioritizeHighScore" />
@@ -221,6 +230,11 @@
         <el-button type="primary" @click="handleSaveConfig">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 模板管理对话框 -->
+    <el-dialog v-model="showTemplateManager" title="打招呼语模板管理" width="900px" top="5vh">
+      <TemplateManagerContent />
+    </el-dialog>
   </div>
 </template>
 
@@ -239,12 +253,20 @@ import {
 } from '@element-plus/icons-vue';
 import { useAutoDelivery } from '@/composables/useAutoDelivery';
 import { useDeliveryConfig } from '@/stores/deliveryConfig';
+import TemplateSelector from '@/components/TemplateSelector.vue';
+import TemplateManagerContent from '@/pages/TemplateManager.vue';
 
 const autoDelivery = useAutoDelivery();
 const configStore = useDeliveryConfig();
 
 const showConfigDialog = ref(false);
+const showTemplateManager = ref(false);
 const activeTab = ref('rules');
+
+// 处理模板选择
+function handleTemplateSelect(content: string) {
+  configStore.config.strategy.greetingTemplate = content;
+}
 
 onMounted(async () => {
   await autoDelivery.initialize();
