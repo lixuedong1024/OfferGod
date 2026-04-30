@@ -11,7 +11,19 @@ const newExcludeKeyword = ref('');
 
 // 区域字段的计算属性：数组 <-> 字符串转换
 const districtsText = computed({
-  get: () => searchConfig.value.districts.join(', '),
+  get: () => {
+    const districts = searchConfig.value.districts;
+    // 容错处理：确保 districts 是数组
+    if (Array.isArray(districts)) {
+      return districts.join(', ');
+    }
+    // 如果是字符串，直接返回
+    if (typeof districts === 'string') {
+      return districts;
+    }
+    // 其他情况返回空字符串
+    return '';
+  },
   set: (value: string) => {
     searchConfig.value.districts = value
       .split(',')
