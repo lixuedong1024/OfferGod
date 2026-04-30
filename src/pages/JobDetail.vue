@@ -177,7 +177,7 @@ const loadJobDetail = async () => {
 
         if (updatedJobData && updatedJobData.postDescription) {
           Object.assign(jobData, updatedJobData);
-          Logger.info('成功获取岗位描述', { length: updatedJobData.postDescription.length });
+          Logger.info('成功获取岗位描述', { length: updatedJobData.postDescription?.length || 0 });
         } else {
           Logger.warn('未能获取岗位描述');
         }
@@ -253,6 +253,10 @@ const loadJobDetail = async () => {
         matched = ['请先完善简历信息'];
         missing = ['需要填写工作经验、技能等信息'];
         aiSuggestion = '请先在设置中完善简历信息，以便进行精准匹配分析。';
+      } else if (!jobData.postDescription) {
+        matched = ['岗位信息不完整'];
+        missing = ['缺少岗位描述'];
+        aiSuggestion = '该岗位缺少详细描述，建议直接查看原页面或联系HR了解详情。';
       }
 
       job.value = {
