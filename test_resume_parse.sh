@@ -5,9 +5,9 @@
 # ============================================================================
 # 配置区域 - 请在这里填写你的 API Key 和 Base URL
 # ============================================================================
-CLAUDE_API_KEY="sk-ant-填写你的API_KEY"  # 填写你的 Claude API Key
-CLAUDE_BASE_URL="https://填写你的代理地址"  # 填写你的第三方 API 端点
-CLAUDE_MODEL="claude-opus-4-7"  # 使用的模型
+CLAUDE_API_KEY = "sk-76172c7d1d0d3e72061ab03ea915a423f12ea1ef0743d416913af64f2aa44551"  # 填写你的 Claude API Key
+CLAUDE_BASE_URL = "https://cc-vibe.com"  # 填写你的第三方 API 端点
+CLAUDE_MODEL = "claude-opus-4-7"  # 使用的模型
 # ============================================================================
 
 set -e

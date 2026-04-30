@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-简历解析测试脚本 - 纯标准库实现
-用于测试 Claude API 的 PDF 简历解析功能
-不依赖任何第三方库，仅使用 Python 标准库
+简历解析测试脚本 - 使用图片方式
+适用于不支持 document 类型的第三方 API
 """
 
 # ============================================================================
@@ -17,20 +16,79 @@ import os
 import sys
 import json
 import base64
-import urllib.request
-import urllib.error
+from pathlib import Path
+
+try:
+    import anthropic
+except ImportError:
+    print("❌ 缺少 anthropic 库，正在安装...")
+    os.system(f"{sys.executable} -m pip install anthropic")
+    import anthropic
+
+try:
+    from pdf2image import convert_from_path
+    from PIL import Image
+    import io
+except ImportError:
+    print("❌ 缺少 pdf2image 和 Pillow 库，正在安装...")
+    os.system(f"{sys.executable} -m pip install pdf2image Pillow")
+    from pdf2image import convert_from_path
+    from PIL import Image
+    import io
 
 
-def read_pdf_file(file_path: str) -> str:
-    """读取 PDF 文件并转换为 base64"""
-    with open(file_path, 'rb') as f:
-        pdf_data = f.read()
-    return base64.standard_b64encode(pdf_data).decode('utf-8')
+def pdf_to_images_base64(pdf_path: str, max_pages: int = 5) -> list:
+    """
+    将 PDF 转换为图片的 base64 列表
+
+    Args:
+        pdf_path: PDF 文件路径
+        max_pages: 最多转换的页数（避免 token 过多）
+
+    Returns:
+        图片 base64 列表
+    """
+    print(f"📄 正在将 PDF 转换为图片...")
+
+    try:
+        # 转换 PDF 为图片（每页一张）
+        images = convert_from_path(pdf_path, dpi=150)
+
+        total_pages = len(images)
+        print(f"   PDF 总页数: {total_pages}")
+
+        if total_pages > max_pages:
+            print(f"   ⚠️  只处理前 {max_pages} 页（避免 token 过多）")
+            images = images[:max_pages]
+
+        image_base64_list = []
+
+        for i, image in enumerate(images, 1):
+            # 压缩图片以减少大小
+            output = io.BytesIO()
+            image.save(output, format='JPEG', quality=85, optimize=True)
+            image_data = output.getvalue()
+
+            # 转换为 base64
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            image_base64_list.append(image_base64)
+
+            print(f"   ✅ 第 {i} 页转换完成 (大小: {len(image_base64) / 1024:.1f} KB)")
+
+        return image_base64_list
+
+    except Exception as e:
+        print(f"❌ PDF 转换失败: {e}")
+        print(f"   提示: 需要安装 poppler")
+        print(f"   macOS: brew install poppler")
+        print(f"   Ubuntu: sudo apt-get install poppler-utils")
+        print(f"   Windows: 下载 poppler 并添加到 PATH")
+        return None
 
 
 def build_resume_parse_prompt() -> str:
     """构建简历解析提示词"""
-    return """你是一位专业的简历分析专家。我已经上传了一份 PDF 格式的简历，请仔细阅读并提取关键信息。
+    return """你是一位专业的简历分析专家。我已经上传了简历的图片，请仔细阅读并提取关键信息。
 
 # 提取任务
 
@@ -91,16 +149,8 @@ def build_resume_parse_prompt() -> str:
 - 电话号码如果存在，请脱敏处理（如 138****1234）"""
 
 
-def parse_resume(api_key: str, pdf_path: str, model: str = "claude-opus-4-7", base_url: str = None):
-    """
-    使用 Claude API 解析简历（纯标准库实现）
-
-    Args:
-        api_key: Claude API Key
-        pdf_path: PDF 文件路径
-        model: 使用的模型（默认 claude-opus-4-7）
-        base_url: 自定义 API 端点（可选）
-    """
+def parse_resume_with_images(api_key: str, pdf_path: str, model: str, base_url: str):
+    """使用图片方式解析简历"""
 
     # 检查文件是否存在
     if not os.path.exists(pdf_path):
@@ -114,138 +164,91 @@ def parse_resume(api_key: str, pdf_path: str, model: str = "claude-opus-4-7", ba
     print(f"   路径: {pdf_path}")
     print(f"   大小: {file_size_mb:.2f} MB")
 
-    if file_size > 32 * 1024 * 1024:
-        print(f"❌ 文件过大（超过 32MB 限制）")
+    # 转换 PDF 为图片
+    print(f"\n" + "=" * 80)
+    image_base64_list = pdf_to_images_base64(pdf_path, max_pages=5)
+
+    if not image_base64_list:
         return None
 
-    if file_size_mb > 5:
-        print(f"⚠️  文件较大，解析可能需要较长时间")
-
-    # 读取 PDF 文件
-    print(f"\n📖 正在读取 PDF 文件...")
-    try:
-        pdf_base64 = read_pdf_file(pdf_path)
-        print(f"✅ PDF 文件读取成功 (base64 长度: {len(pdf_base64)})")
-    except Exception as e:
-        print(f"❌ 读取 PDF 文件失败: {e}")
-        return None
-
-    # 构建 API 请求
-    print(f"\n🤖 准备 API 请求...")
+    # 初始化 Claude 客户端
+    print(f"\n🤖 初始化 Claude 客户端...")
     print(f"   模型: {model}")
-    if base_url:
-        print(f"   Base URL: {base_url}")
+    print(f"   Base URL: {base_url}")
 
-    # 构建请求 URL
-    api_url = f"{base_url}/v1/messages" if base_url else "https://api.anthropic.com/v1/messages"
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        base_url=base_url
+    )
 
-    # 构建请求体
+    # 构建提示词
     prompt = build_resume_parse_prompt()
 
-    request_body = {
-        "model": model,
-        "max_tokens": 8192,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": pdf_base64,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    }
-                ],
-            }
-        ],
-    }
+    # 构建消息内容（多张图片 + 文本）
+    content = []
 
-    # 构建请求头（添加浏览器标识以绕过 Cloudflare）
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Origin": base_url if base_url else "https://api.anthropic.com",
-        "Referer": f"{base_url}/" if base_url else "https://api.anthropic.com/",
-    }
+    # 添加所有图片
+    for i, image_base64 in enumerate(image_base64_list, 1):
+        content.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": image_base64,
+            }
+        })
+
+    # 添加提示词
+    content.append({
+        "type": "text",
+        "text": prompt,
+    })
 
     # 调用 API
     print(f"\n🚀 开始调用 Claude API 解析简历...")
-    print(f"📤 使用 document 类型发送 PDF...")
-    print(f"🔗 请求 URL: {api_url}")
-    print(f"📋 请求头:")
-    for key, value in headers.items():
-        if key == "x-api-key":
-            print(f"   {key}: {value[:20]}...")
-        else:
-            print(f"   {key}: {value}")
+    print(f"   发送 {len(image_base64_list)} 张图片")
 
     try:
-        # 准备请求
-        request_data = json.dumps(request_body).encode('utf-8')
-        print(f"📦 请求体大小: {len(request_data) / 1024:.2f} KB")
-
-        req = urllib.request.Request(
-            api_url,
-            data=request_data,
-            headers=headers,
-            method='POST'
+        response = client.messages.create(
+            model=model,
+            max_tokens=8192,
+            messages=[
+                {
+                    "role": "user",
+                    "content": content,
+                }
+            ],
         )
 
-        # 发送请求
-        print(f"⏳ 等待 API 响应...")
-        with urllib.request.urlopen(req, timeout=120) as response:
-            response_data = response.read().decode('utf-8')
-            response_json = json.loads(response_data)
-
         print(f"✅ API 调用成功!")
-
-        # 打印 Token 使用情况
-        if 'usage' in response_json:
-            usage = response_json['usage']
-            print(f"\n📊 Token 使用情况:")
-            print(f"   输入 tokens: {usage.get('input_tokens', 0)}")
-            print(f"   输出 tokens: {usage.get('output_tokens', 0)}")
-            print(f"   总计 tokens: {usage.get('input_tokens', 0) + usage.get('output_tokens', 0)}")
-
-            if 'cache_creation_input_tokens' in usage:
-                print(f"   缓存创建 tokens: {usage['cache_creation_input_tokens']}")
-            if 'cache_read_input_tokens' in usage:
-                print(f"   缓存读取 tokens: {usage['cache_read_input_tokens']}")
+        print(f"\n📊 Token 使用情况:")
+        print(f"   输入 tokens: {response.usage.input_tokens}")
+        print(f"   输出 tokens: {response.usage.output_tokens}")
+        print(f"   总计 tokens: {response.usage.input_tokens + response.usage.output_tokens}")
 
         # 提取响应内容
-        content = ""
-        if 'content' in response_json and len(response_json['content']) > 0:
-            content = response_json['content'][0].get('text', '')
+        content_text = response.content[0].text if response.content else ""
 
         print(f"\n📝 原始响应:")
         print("=" * 80)
-        print(content)
+        print(content_text)
         print("=" * 80)
 
         # 尝试解析 JSON
         print(f"\n🔍 解析 JSON 数据...")
         try:
-            # 提取 JSON（支持 markdown 代码块格式）
-            json_str = content
+            import re
+
+            # 提取 JSON
+            json_str = content_text
 
             # 尝试提取 markdown 代码块中的 JSON
-            import re
-            code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', content)
+            code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', content_text)
             if code_block_match:
                 json_str = code_block_match.group(1)
             else:
                 # 尝试直接提取 JSON 对象
-                json_match = re.search(r'\{[\s\S]*\}', content)
+                json_match = re.search(r'\{[\s\S]*\}', content_text)
                 if json_match:
                     json_str = json_match.group(0)
 
@@ -262,25 +265,10 @@ def parse_resume(api_key: str, pdf_path: str, model: str = "claude-opus-4-7", ba
             print(f"   尝试解析的内容: {json_str[:200]}...")
             return None
 
-    except urllib.error.HTTPError as e:
-        print(f"❌ HTTP 错误: {e.code} {e.reason}")
-        try:
-            error_body = e.read().decode('utf-8')
-            print(f"📄 错误详情:")
-            print(error_body)
-
-            # 尝试解析错误 JSON
-            try:
-                error_json = json.loads(error_body)
-                print(f"\n🔍 解析后的错误信息:")
-                print(json.dumps(error_json, ensure_ascii=False, indent=2))
-            except:
-                pass
-        except:
-            pass
-        return None
-    except urllib.error.URLError as e:
-        print(f"❌ URL 错误: {e.reason}")
+    except anthropic.APIError as e:
+        print(f"❌ API 调用失败: {e}")
+        print(f"   状态码: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
+        print(f"   错误类型: {e.type if hasattr(e, 'type') else 'N/A'}")
         return None
     except Exception as e:
         print(f"❌ 未知错误: {e}")
@@ -292,7 +280,7 @@ def parse_resume(api_key: str, pdf_path: str, model: str = "claude-opus-4-7", ba
 def main():
     """主函数"""
     print("=" * 80)
-    print("📄 Claude 简历解析测试工具 (纯标准库实现)")
+    print("📄 Claude 简历解析测试工具 (图片模式)")
     print("=" * 80)
 
     # 使用脚本顶部配置的 API Key 和 Base URL
@@ -325,7 +313,7 @@ def main():
 
     # 执行解析
     print("\n" + "=" * 80)
-    result = parse_resume(api_key, pdf_path, model, base_url)
+    result = parse_resume_with_images(api_key, pdf_path, model, base_url)
 
     if result:
         print("\n" + "=" * 80)
