@@ -223,7 +223,12 @@ async function editPreferences() {
 
         <div class="lbl">求职偏好（用于 AI 评分）</div>
         <div style="font-size: 12.5px; line-height: 1.7; color: var(--fg-1); margin-bottom: 10px">
-          {{ resumeProfile.preferences }}
+          <template v-if="resumeProfile.preferences && resumeProfile.preferences.trim()">
+            {{ resumeProfile.preferences }}
+          </template>
+          <span v-else style="color: var(--fg-3); font-style: italic">
+            暂未设置求职偏好，点击下方按钮添加
+          </span>
         </div>
         <button class="btn sm" @click="editPreferences">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

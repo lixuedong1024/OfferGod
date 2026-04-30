@@ -281,6 +281,18 @@ select:not(.el-select):focus {
   background: rgba(20, 184, 166, 0.1) !important;
 }
 
+/* 浅色模式下的导航项 */
+[data-theme='light'] .nav-item.active {
+  background: rgba(20, 184, 166, 0.12) !important;
+  color: #0d9488 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme='light'] .nav-item:hover {
+  background: rgba(20, 184, 166, 0.08) !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
 /* 评分条 */
 .score-bar-fill {
   background: linear-gradient(90deg, #14b8a6, #0d9488) !important;
@@ -456,7 +468,8 @@ input[type="radio"]:checked {
 }
 
 [data-theme='light'] .sidebar {
-  background: rgba(255, 255, 255, 0.6) !important;
+  background: rgba(248, 250, 252, 0.8) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
 }
 
 [data-theme='light'] .topbar {
