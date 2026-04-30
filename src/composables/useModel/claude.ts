@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { llmConf, llmInfo, messageReps, prompt } from './type';
 import { llm } from './type';
+import { convertPDFToImages } from '@/utils/pdfToImage';
 
 export type claudeLLMConf = llmConf<
   'claude',
@@ -200,7 +201,7 @@ class ClaudeGpt extends llm<claudeLLMConf> {
   }
 
   /**
-   * 解析 PDF 文档
+   * 解析 PDF 文档（使用图片方式）
    * @param pdfFile PDF 文件对象
    * @param question 要问的问题
    * @param useCache 是否使用 prompt caching（重复使用同一文档时可节省成本）
@@ -211,70 +212,90 @@ class ClaudeGpt extends llm<claudeLLMConf> {
     useCache: boolean = true
   ): Promise<messageReps> {
     try {
-      console.log('[Claude] 开始解析 PDF 文档', {
+      console.log('[Claude] 开始解析 PDF 文档（图片方式）', {
         fileName: pdfFile.name,
         fileSize: pdfFile.size,
         fileType: pdfFile.type
       });
 
-      // 读取 PDF 文件并转换为 base64
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-
-      console.log('[Claude] PDF 文件读取成功，开始 base64 编码', {
-        arrayBufferSize: arrayBuffer.byteLength
+      // 将 PDF 转换为图片
+      const pdfImages = await convertPDFToImages(pdfFile, {
+        maxPages: 5,
+        scale: 1.5,
+        format: 'png'
       });
 
-      // 转换为 base64
-      let binary = '';
-      const len = uint8Array.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(uint8Array[i]);
-      }
-      const base64Data = btoa(binary);
-
-      console.log('[Claude] Base64 编码完成', {
-        base64Length: base64Data.length
+      console.log('[Claude] PDF 转图片完成', {
+        totalPages: pdfImages.pageCount,
+        convertedPages: pdfImages.convertedPages,
+        imageCount: pdfImages.images.length
       });
 
       const ans: messageReps = { prompt: question };
 
-      // 构建消息内容
-      const content: any[] = [
-        {
-          type: 'document',
+      // 构建消息内容：先添加所有图片，最后添加文本问题
+      const content: any[] = [];
+
+      // 添加所有图片
+      for (let i = 0; i < pdfImages.images.length; i++) {
+        content.push({
+          type: 'image',
           source: {
             type: 'base64',
-            media_type: 'application/pdf',
-            data: base64Data,
+            media_type: 'image/png',
+            data: pdfImages.images[i],
           },
-          // 使用 cache_control 标记文档内容可缓存
-          ...(useCache ? { cache_control: { type: 'ephemeral' } } : {}),
-        },
-        {
-          type: 'text',
-          text: question,
-        },
-      ];
+          // 只对第一张图片使用 cache_control
+          ...(useCache && i === 0 ? { cache_control: { type: 'ephemeral' } } : {}),
+        });
+      }
+
+      // 添加文本问题
+      content.push({
+        type: 'text',
+        text: question,
+      });
 
       console.log('[Claude] 开始调用 API', {
         model: this.conf.model,
         maxTokens: this.conf.max_tokens,
-        useCache
+        imageCount: pdfImages.images.length,
+        useCache,
+        baseURL: this.conf.base_url || 'https://api.anthropic.com',
+        apiKeyPrefix: this.conf.api_key.substring(0, 10) + '...',
+        contentTypes: content.map(c => c.type),
+        imageSizes: content.filter(c => c.type === 'image').map(c => `${(c.source.data.length / 1024).toFixed(2)}KB`)
       });
 
-      const response = await this.client.messages.create({
-        model: this.conf.model,
-        max_tokens: this.conf.max_tokens || 4096,
-        temperature: this.conf.temperature,
-        top_p: this.conf.top_p,
-        top_k: this.conf.top_k,
-        messages: [
+      // 通过 background script 调用 API（绕过 content script 的跨域限制）
+      const response = await new Promise<any>((resolve, reject) => {
+        chrome.runtime.sendMessage(
           {
-            role: 'user',
-            content,
+            type: 'CLAUDE_API_CALL',
+            payload: {
+              apiKey: this.conf.api_key,
+              baseURL: this.conf.base_url,
+              model: this.conf.model,
+              maxTokens: this.conf.max_tokens || 4096,
+              temperature: this.conf.temperature,
+              topP: this.conf.top_p,
+              topK: this.conf.top_k,
+              messages: [
+                {
+                  role: 'user',
+                  content,
+                },
+              ],
+            },
           },
-        ],
+          (response) => {
+            if (response.success) {
+              resolve(response.data);
+            } else {
+              reject(new Error(response.error.message || 'API 调用失败'));
+            }
+          }
+        );
       });
 
       console.log('[Claude] API 调用成功', {
@@ -302,13 +323,15 @@ class ClaudeGpt extends llm<claudeLLMConf> {
 
       return ans;
     } catch (error: any) {
-      console.error('[Claude] PDF 解析失败', {
-        error: error.message,
-        stack: error.stack,
-        status: error.status,
-        type: error.type
-      });
-      throw new Error(`Claude PDF 解析失败: ${error.message || JSON.stringify(error)}`);
+      // 详细的错误日志
+      console.error('[Claude] PDF 解析失败 - 错误消息:', error.message);
+      console.error('[Claude] PDF 解析失败 - 错误名称:', error.name);
+      console.error('[Claude] PDF 解析失败 - 错误代码:', error.code);
+      console.error('[Claude] PDF 解析失败 - 错误状态:', error.status);
+      console.error('[Claude] PDF 解析失败 - 错误类型:', error.type);
+      console.error('[Claude] PDF 解析失败 - 完整错误:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
+      throw new Error(`Claude PDF 解析失败: ${error.message || error.name || JSON.stringify(error)}`);
     }
   }
 }

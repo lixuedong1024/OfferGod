@@ -9,6 +9,17 @@ const searchConfig = computed(() => configStore.config.search);
 const newKeyword = ref('');
 const newExcludeKeyword = ref('');
 
+// 区域字段的计算属性：数组 <-> 字符串转换
+const districtsText = computed({
+  get: () => searchConfig.value.districts.join(', '),
+  set: (value: string) => {
+    searchConfig.value.districts = value
+      .split(',')
+      .map(d => d.trim())
+      .filter(d => d.length > 0);
+  }
+});
+
 function addKeyword() {
   if (newKeyword.value.trim()) {
     searchConfig.value.keywords.push(newKeyword.value.trim());
@@ -127,7 +138,7 @@ const educationOptions = [
         <div>
           <label class="lbl">区域（可多选）</label>
           <ElInput
-            v-model="searchConfig.districts"
+            v-model="districtsText"
             class="field"
             placeholder="海淀, 朝阳, 望京"
           />

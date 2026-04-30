@@ -157,6 +157,32 @@ const loadJobDetail = async () => {
     const jobData = jobs.find((j: any) => j.encryptJobId === props.jobId);
 
     if (jobData) {
+      // 如果没有岗位描述，尝试从当前页面获取
+      if (!jobData.postDescription || jobData.postDescription.trim() === '') {
+        Logger.info('岗位描述为空，尝试从页面获取');
+
+        // 发送消息到 main-world 获取岗位描述
+        window.postMessage({
+          type: 'OFFERGOD_GET_JOB_DETAIL',
+          jobId: props.jobId
+        }, '*');
+
+        // 等待一段时间后重新加载
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // 重新读取数据
+        const updatedData = await chrome.storage.local.get('jobs');
+        const updatedJobs = updatedData.jobs || [];
+        const updatedJobData = updatedJobs.find((j: any) => j.encryptJobId === props.jobId);
+
+        if (updatedJobData && updatedJobData.postDescription) {
+          Object.assign(jobData, updatedJobData);
+          Logger.info('成功获取岗位描述', { length: updatedJobData.postDescription.length });
+        } else {
+          Logger.warn('未能获取岗位描述');
+        }
+      }
+
       // 默认值
       let score = 75;
       let matched: string[] = [];

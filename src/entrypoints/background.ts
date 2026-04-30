@@ -72,6 +72,67 @@ export default defineBackground(() => {
       return true;
     }
 
+    // 处理 Claude API 调用请求（用于简历解析）
+    if (request.type === 'CLAUDE_API_CALL') {
+      (async () => {
+        try {
+          const { apiKey, baseURL, model, maxTokens, temperature, topP, topK, messages } = request.payload;
+
+          console.log('[Background] 处理 Claude API 调用:', {
+            baseURL,
+            model,
+            maxTokens,
+            messagesCount: messages.length,
+          });
+
+          // 动态导入 Anthropic SDK
+          const Anthropic = (await import('@anthropic-ai/sdk')).default;
+
+          const client = new Anthropic({
+            apiKey,
+            baseURL,
+          });
+
+          const response = await client.messages.create({
+            model,
+            max_tokens: maxTokens || 4096,
+            temperature,
+            top_p: topP,
+            top_k: topK,
+            messages,
+          });
+
+          console.log('[Background] Claude API 调用成功:', {
+            id: response.id,
+            model: response.model,
+            role: response.role,
+            stopReason: response.stop_reason,
+            usage: response.usage,
+          });
+
+          sendResponse({ success: true, data: response });
+        } catch (error: any) {
+          console.error('[Background] Claude API 调用失败:', {
+            message: error.message,
+            name: error.name,
+            status: error.status,
+            type: error.type,
+          });
+
+          sendResponse({
+            success: false,
+            error: {
+              message: error.message,
+              name: error.name,
+              status: error.status,
+              type: error.type,
+            },
+          });
+        }
+      })();
+      return true;
+    }
+
     // 处理 API 测试请求
     if (request.type === 'TEST_API_CONNECTION') {
       (async () => {

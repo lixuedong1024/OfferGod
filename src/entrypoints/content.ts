@@ -112,6 +112,37 @@ export default defineContentScript({
         }
         // 用户信息获取失败时静默处理，不影响主要功能
       }
+
+      // 处理岗位详情数据
+      if (event.data.type === 'OFFERGOD_JOB_DETAIL_RESULT') {
+        const { jobId, description } = event.data;
+
+        if (jobId && description) {
+          Logger.info('收到岗位详情', { jobId, descLength: description.length });
+
+          try {
+            // 更新岗位数据
+            const data = await chrome.storage.local.get('jobs');
+            const jobs = data.jobs || [];
+
+            const updatedJobs = jobs.map((job: any) => {
+              if (job.encryptJobId === jobId) {
+                return {
+                  ...job,
+                  postDescription: description,
+                  updatedAt: Date.now(),
+                };
+              }
+              return job;
+            });
+
+            await chrome.storage.local.set({ jobs: updatedJobs });
+            Logger.info('岗位描述已更新', { jobId });
+          } catch (error) {
+            Logger.error('更新岗位描述失败', { error: String(error) });
+          }
+        }
+      }
     });
 
     // 监听 WebSocket 聊天消息事件

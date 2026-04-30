@@ -28,6 +28,9 @@ export default defineUnlistedScript(() => {
     brandIndustry?: string;
     brandScaleName?: string;
     welfareList?: string[];
+
+    // 详情信息
+    postDescription?: string;
   }
 
   interface UserInfo {
@@ -196,7 +199,56 @@ export default defineUnlistedScript(() => {
       brandIndustry: job.brandIndustry || '',
       brandScaleName: job.brandScaleName || '',
       welfareList: job.welfareList || [],
+
+      // 岗位描述（如果有的话）
+      postDescription: job.postDescription || job.jobDescription || '',
     }));
+  }
+
+  // 获取当前岗位详情页的描述信息
+  function getJobDetailDescription(): string {
+    try {
+      // 方法1: 从 Vue 实例获取
+      const detailElement = document.querySelector('.job-detail-section, .job-detail, .detail-content') as any;
+      if (detailElement && detailElement.__vue__) {
+        const vue = detailElement.__vue__;
+        const description = vue.jobDetail?.postDescription ||
+                          vue.jobInfo?.postDescription ||
+                          vue.postDescription || '';
+        if (description) return description;
+      }
+
+      // 方法2: 从 DOM 获取
+      const descSelectors = [
+        '.job-sec-text',
+        '.text-description',
+        '.job-detail-text',
+        '.detail-content .text',
+        '[class*="job-description"]',
+        '[class*="post-description"]'
+      ];
+
+      for (const selector of descSelectors) {
+        const element = document.querySelector(selector);
+        if (element && element.textContent) {
+          const text = element.textContent.trim();
+          if (text.length > 50) { // 确保不是空内容
+            return text;
+          }
+        }
+      }
+
+      // 方法3: 从 __INITIAL_STATE__ 获取
+      if ((window as any).__INITIAL_STATE__?.jobDetail) {
+        const jobDetail = (window as any).__INITIAL_STATE__.jobDetail;
+        return jobDetail.postDescription || jobDetail.jobDescription || '';
+      }
+
+      return '';
+    } catch (error) {
+      console.error('获取岗位描述失败:', error);
+      return '';
+    }
   }
 
   // 翻页
@@ -312,7 +364,58 @@ export default defineUnlistedScript(() => {
         type: 'OFFERGOD_USER_INFO_RESULT',
         userInfo: userInfo,
       }, '*');
+    } else if (event.data.type === 'OFFERGOD_GET_JOB_DETAIL') {
+      console.log('📨 收到获取岗位详情请求');
+
+      const description = getJobDetailDescription();
+
+      // 发送结果回 content script
+      window.postMessage({
+        type: 'OFFERGOD_JOB_DETAIL_RESULT',
+        jobId: event.data.jobId,
+        description: description,
+      }, '*');
     }
+  });
+
+  // 监听 URL 变化，自动获取岗位详情
+  let lastUrl = location.href;
+  const urlObserver = new MutationObserver(() => {
+    const currentUrl = location.href;
+    if (currentUrl !== lastUrl) {
+      lastUrl = currentUrl;
+
+      // 如果进入岗位详情页
+      if (currentUrl.includes('/job_detail/')) {
+        console.log('🔍 检测到进入岗位详情页');
+
+        // 等待页面加载后获取描述
+        setTimeout(() => {
+          const description = getJobDetailDescription();
+          if (description) {
+            // 从 URL 提取 jobId
+            const match = currentUrl.match(/job_detail\/([^/?]+)/);
+            const jobId = match ? match[1] : '';
+
+            if (jobId) {
+              console.log('✅ 自动获取到岗位描述，长度:', description.length);
+
+              // 发送到 content script
+              window.postMessage({
+                type: 'OFFERGOD_JOB_DETAIL_RESULT',
+                jobId: jobId,
+                description: description,
+              }, '*');
+            }
+          }
+        }, 1500);
+      }
+    }
+  });
+
+  urlObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
   });
 
   console.log('✅ OfferGod main-world 脚本已加载');
